@@ -238,7 +238,7 @@ SoftI2CMaster di Bernhard Nebel (Library Manager Arduino IDE)
 
 // Orari in UTC (ora italiana CEST = UTC+2)
 #define ORA_ACCENSIONE   8      // 8 UTC = 10:00 CEST
-#define ORA_SPEGNIMENTO  20     // Failsafe ATtiny - il cron gestisce spegnimento reale
+#define ORA_SPEGNIMENTO  17     // Failsafe ATtiny - il cron gestisce spegnimento reale
 
 // Soglie ADC batteria
 // Partitore R1=20k R2=10k, VCC=5.1V
