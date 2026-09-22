@@ -1,7 +1,7 @@
 # Stazione OGN Solare Autonoma
 ## Guida completa alla costruzione e configurazione
 
-**Versione:** 1.3  
+**Versione:** 1.5  
 **Data:** Settembre 2026  
 **Basata su:** Esperienza pratica di installazione in montagna (Umbria/Toscana, 1300m s.l.m.)
 
@@ -222,7 +222,7 @@ SoftI2CMaster di Bernhard Nebel (Library Manager Arduino IDE)
 - Board: Digispark (Default - 16.5mhz)
 - Programmer: Micronucleus
 
-### Sketch definitivo v1.3
+### Sketch definitivo v1.5
 
 ```cpp
 #define SDA_PORT PORTB
@@ -238,7 +238,7 @@ SoftI2CMaster di Bernhard Nebel (Library Manager Arduino IDE)
 
 // Orari in UTC (ora italiana CEST = UTC+2)
 #define ORA_ACCENSIONE   8      // 8 UTC = 10:00 CEST
-#define ORA_SPEGNIMENTO  17     // Failsafe ATtiny - il cron gestisce spegnimento reale
+#define ORA_SPEGNIMENTO  20     // Failsafe ATtiny - il cron gestisce spegnimento reale
 
 // Soglie ADC batteria
 // Partitore R1=20k R2=10k, VCC=5.1V
@@ -327,14 +327,19 @@ void loop() {
 
 ```
 ACCENSIONE (ogni mattina):
-Ore 8 UTC (10:00 CEST) + batteria >= 5.7V --> RPi acceso
+Ore 8 UTC (10:00 CEST) + batteria >= 5.7V +
+ora attuale < ora taglio allarme DS3231 --> RPi acceso
 
 SPEGNIMENTO serale (gestito dal cron RPi):
-Tramonto calcolato - 90 minuti --> shutdown pulito RPi
-Failsafe 1 ora dopo --> secondo shutdown
+Tramonto - 90 minuti --> shutdown pulito RPi
 
-FAILSAFE ATtiny (emergenza):
-Ore 20 UTC (22:00 CEST) --> taglio alimentazione se cron fallisce
+TAGLIO RELE ATtiny (dinamico da DS3231):
+Tramonto - 88 minuti --> ATtiny legge registro allarme DS3231
+--> apre rele 2 minuti dopo lo shutdown cron
+--> nessun loop RPi acceso/spento!
+
+FALLBACK ATtiny (se registro allarme non valido):
+ORA_SPEGNIMENTO_DEFAULT = 17 UTC (19:00 CEST)
 
 PROTEZIONE BATTERIA (priorita massima):
 Batteria < 5.4V --> spegne subito indipendentemente dall'orario
@@ -402,16 +407,19 @@ enable_uart=1
 ```python
 #!/usr/bin/env python3
 # Calcolo tramonto senza librerie esterne
-# Modifica LAT, LON e MARGINE_MINUTI secondo le tue esigenze
+# Scrive ora taglio rele nel registro allarme DS3231
+# Modifica LAT, LON e margini secondo le tue esigenze
 
 import math
 import datetime
 import subprocess
+import os
 
 # === CONFIGURAZIONE ===
-LAT = 43.349721      # Latitudine stazione
-LON = 12.773177      # Longitudine stazione
-MARGINE_MINUTI = 90  # Minuti prima del tramonto per lo spegnimento
+LAT = 43.349721
+LON = 12.773177
+MARGINE_SHUTDOWN = 90  # minuti prima tramonto per shutdown cron
+MARGINE_RELE     = 88  # minuti prima tramonto per taglio rele ATtiny
 
 def calcola_tramonto(lat, lon, data=None):
     if data is None:
@@ -438,32 +446,55 @@ def calcola_tramonto(lat, lon, data=None):
     UT = T - lng_ora
     return UT % 24
 
+def dec2bcd(val):
+    return ((val // 10) << 4) | (val % 10)
+
+def scrivi_allarme_ds3231(ore_utc, minuti):
+    ore_bcd = dec2bcd(int(ore_utc))
+    min_bcd = dec2bcd(int(minuti))
+    os.system(f"i2cset -y 1 0x68 0x07 0x00")
+    os.system(f"i2cset -y 1 0x68 0x08 0x{min_bcd:02x}")
+    os.system(f"i2cset -y 1 0x68 0x09 0x{ore_bcd:02x}")
+
 tramonto_utc = calcola_tramonto(LAT, LON)
 
 if tramonto_utc:
-    spegnimento_utc = tramonto_utc - (MARGINE_MINUTI / 60.0)
-    if spegnimento_utc < 0:
-        spegnimento_utc += 24
-    ore   = int(spegnimento_utc)
-    min_s = int((spegnimento_utc - ore) * 60)
-    ore_fs = (ore + 1) % 24
+    # Orario shutdown cron
+    shutdown_utc = tramonto_utc - (MARGINE_SHUTDOWN / 60.0)
+    if shutdown_utc < 0:
+        shutdown_utc += 24
+    ore_sh  = int(shutdown_utc)
+    min_sh  = int((shutdown_utc - ore_sh) * 60)
+    ore_fs  = (ore_sh + 1) % 24
 
+    # Orario taglio rele
+    rele_utc = tramonto_utc - (MARGINE_RELE / 60.0)
+    if rele_utc < 0:
+        rele_utc += 24
+    ore_rele = int(rele_utc)
+    min_rele = int((rele_utc - ore_rele) * 60)
+
+    # Aggiorna crontab
     result = subprocess.run(
         ['crontab', '-u', 'root', '-l'],
         capture_output=True, text=True)
     linee = [l for l in result.stdout.split('\n')
              if l.strip() and 'shutdown' not in l]
-    linee.append(f"{min_s} {ore} * * * /sbin/shutdown -h now")
+    linee.append(f"{min_sh} {ore_sh} * * * /sbin/shutdown -h now")
     linee.append(f"0 {ore_fs} * * * /sbin/shutdown -h now")
     nuovo_cron = '\n'.join(linee) + '\n'
     subprocess.run(['crontab', '-u', 'root', '-'],
                    input=nuovo_cron, text=True)
 
+    # Scrivi ora taglio rele nel registro allarme DS3231
+    scrivi_allarme_ds3231(ore_rele, min_rele)
+
     tramonto_h = int(tramonto_utc)
     tramonto_m = int((tramonto_utc - tramonto_h) * 60)
-    print(f"Tramonto UTC:    {tramonto_h:02d}:{tramonto_m:02d}")
-    print(f"Spegnimento UTC: {ore:02d}:{min_s:02d}")
-    print(f"Failsafe UTC:    {ore_fs:02d}:00")
+    print(f"Tramonto UTC:      {tramonto_h:02d}:{tramonto_m:02d}")
+    print(f"Shutdown cron UTC: {ore_sh:02d}:{min_sh:02d}")
+    print(f"Failsafe UTC:      {ore_fs:02d}:00")
+    print(f"Taglio rele UTC:   {ore_rele:02d}:{min_rele:02d}")
 else:
     print("Errore calcolo tramonto - uso orario fisso")
     result = subprocess.run(
@@ -471,11 +502,13 @@ else:
         capture_output=True, text=True)
     linee = [l for l in result.stdout.split('\n')
              if l.strip() and 'shutdown' not in l]
-    linee.append("55 17 * * * /sbin/shutdown -h now")
-    linee.append("0 18 * * * /sbin/shutdown -h now")
+    linee.append("55 16 * * * /sbin/shutdown -h now")
+    linee.append("0 17 * * * /sbin/shutdown -h now")
     nuovo_cron = '\n'.join(linee) + '\n'
     subprocess.run(['crontab', '-u', 'root', '-'],
                    input=nuovo_cron, text=True)
+    # Fallback fisso: 17:00 UTC
+    scrivi_allarme_ds3231(17, 0)
 ```
 
 ### File /boot/setup_cron.sh
@@ -518,34 +551,62 @@ chmod +x /boot/setup_cron.sh
 
 ## Spegnimento dinamico tramite effemeridi
 
-### Logica spegnimento
+### Logica spegnimento completa
+
+Il sistema usa il registro allarme del DS3231 per comunicare l'orario
+di taglio relè tra RPi e ATtiny in modo completamente dinamico:
 
 ```
-Ogni mattina al boot del RPi:
-setup_cron.sh --> calc_sunset.py --> calcola tramonto del giorno
---> imposta crontab con orario dinamico
+Ogni mattina al boot RPi:
+calc_sunset.py → calcola tramonto del giorno
+→ imposta crontab shutdown (tramonto - 90min)
+→ scrive ora taglio relè nel registro allarme DS3231 (tramonto - 88min)
 
-Spegnimento = tramonto - 90 minuti (configurabile)
-Failsafe    = spegnimento + 60 minuti
+ATtiny ogni 30 secondi:
+→ legge ora attuale dal DS3231
+→ legge ora taglio dal registro allarme DS3231
+→ se ora >= ora taglio → apre relè
+```
+
+### Vantaggi rispetto a orario fisso
+
+```
+Nessun loop RPi acceso/spento dopo shutdown ✅
+Si adatta automaticamente alle stagioni ✅
+Margine 2 minuti tra shutdown cron e taglio relè ✅
+Fallback fisso se calcolo effemeridi fallisce ✅
+Nessun hardware aggiuntivo ✅
+Usa registri allarme DS3231 già presenti ✅
 ```
 
 ### Esempi orari per posizione Umbria/Toscana (lat 43.35, lon 12.77)
 
-| Periodo | Tramonto CEST | Spegnimento CEST | Failsafe CEST |
-|---------|--------------|-----------------|---------------|
-| Giugno | 21:00 | 19:30 | 20:30 |
-| Settembre | 19:07 | 17:37 | 18:37 |
-| Ottobre | 18:18 | 16:48 | 17:48 |
-| Dicembre | 16:45 | 15:15 | 16:15 |
+| Periodo | Tramonto CEST | Shutdown cron | Taglio relè |
+|---------|--------------|---------------|-------------|
+| Giugno | 21:00 | 19:30 | 19:32 |
+| Settembre | 19:07 | 17:37 | 17:39 |
+| Ottobre | 18:18 | 16:48 | 16:50 |
+| Dicembre | 16:45 | 15:15 | 15:17 |
 
-### Modificare il margine
+### Registri DS3231 utilizzati
 
-In /boot/calc_sunset.py modificare:
-```python
-MARGINE_MINUTI = 90  # prima del tramonto
+```
+Registri ora attuale (lettura ATtiny):
+0x01 = minuti correnti
+0x02 = ore correnti UTC
+
+Registri allarme 1 (scritti da RPi, letti da ATtiny):
+0x07 = secondi allarme (sempre 0x00)
+0x08 = minuti taglio relè
+0x09 = ore taglio relè UTC
 ```
 
-Valori positivi = prima del tramonto, negativi = dopo il tramonto.
+### Configurazione margini in calc_sunset.py
+
+```python
+MARGINE_SHUTDOWN = 90  # minuti prima tramonto per shutdown cron
+MARGINE_RELE     = 88  # minuti prima tramonto per taglio relè ATtiny
+```
 
 ---
 
@@ -651,6 +712,28 @@ terminali batteria per sbloccare il BMS (non al sistema)
 - Sostituire batteria CR2032
 - Verificare sincronizzazione via setup_cron.sh
 
+### ATtiny non accende alle 10:00
+
+Il registro allarme DS3231 potrebbe contenere un valore non valido
+(ore <= 8 UTC) scritto prima che calc_sunset.py lo aggiornasse.
+Lo sketch v1.5 include il fix che ignora valori non validi:
+
+```cpp
+if (oreOff <= ORA_ACCENSIONE) return false;
+```
+
+Verificare registro allarme DS3231:
+```bash
+sudo modprobe i2c-dev
+sudo i2cget -y 1 0x68 0x09  # ore allarme - deve essere > 0x08
+sudo i2cget -y 1 0x68 0x08  # minuti allarme
+```
+
+Se il valore ore allarme e <= 0x08 rieseguire:
+```bash
+sudo python3 /boot/calc_sunset.py
+```
+
 ### Spazio SD esaurito
 
 Con overlay attivo lo spazio fisico non viene usato normalmente.
@@ -689,8 +772,9 @@ Il DS3231 usa UTC. In estate (CEST = UTC+2):
 In inverno (CET = UTC+1) aggiornare sketch:
 - ORA_ACCENSIONE = 9 (10:00 CET)
 
-Lo spegnimento serale e gestito automaticamente dalle effemeridi
-e si adatta alle stagioni senza modifiche.
+Lo spegnimento serale e il taglio rele sono gestiti automaticamente
+dalle effemeridi e si adattano alle stagioni senza modifiche.
+Il registro allarme DS3231 viene aggiornato ad ogni avvio del RPi.
 
 ### Protezione SD card
 
@@ -715,4 +799,4 @@ Unici file che sopravvivono al reboot:
 ---
 
 Documentazione basata su installazione reale in Umbria/Toscana, 1300m s.l.m.
-Callsign operatore: IU6SVB - Versione 1.3 - Settembre 2026
+Callsign operatore: IU6SVB - Versione 1.5 - Settembre 2026
