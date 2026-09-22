@@ -1,7 +1,7 @@
 # Stazione OGN Solare Autonoma
 ## Guida completa alla costruzione e configurazione
 
-**Versione:** 1.5  
+**Versione:** 1.6  
 **Data:** Settembre 2026  
 **Basata su:** Esperienza pratica di installazione in montagna (Umbria/Toscana, 1300m s.l.m.)
 
@@ -38,6 +38,7 @@ Il sistema si accende automaticamente alle 10:00 (ora italiana) e si spegne dina
 - Filesystem in sola lettura (overlay) per protezione SD card
 - Sincronizzazione NTP e DS3231 automatica ad ogni avvio via BSS138
 - Connettivita mobile opzionale via SIM7080G HAT Waveshare
+- Accesso SSH remoto tramite Tailscale VPN (WiFi o SIM)
 - Pannello solare 9W per ricarica giornaliera
 - Diodo Schottky 1N5817 su VCC ATtiny per stabilita alimentazione
 
@@ -612,6 +613,23 @@ MARGINE_RELE     = 88  # minuti prima tramonto per taglio relè ATtiny
 
 ## Configurazione SIM7080G
 
+### Accesso SSH remoto con Tailscale
+
+Con SIM7080G in montagna il RPi non ha IP pubblico raggiungibile.
+Tailscale crea una VPN privata sempre accessibile:
+
+```bash
+# Dal tuo Mac/PC sempre:
+ssh pi@100.102.4.120  # IP Tailscale fisso
+
+# Verifica stato Tailscale sul RPi:
+tailscale ip
+tailscale status
+```
+
+Tailscale funziona sia con WiFi che con SIM mobile
+dietro NAT operatore. ✅
+
 ### Test connessione AT
 
 ```bash
@@ -734,6 +752,16 @@ Se il valore ore allarme e <= 0x08 rieseguire:
 sudo python3 /boot/calc_sunset.py
 ```
 
+### Tailscale non si connette dopo reboot
+
+Verificare che la auth key nel setup_cron.sh sia valida e non scaduta.
+Rigenera la key su tailscale.com → Settings → Keys se necessario.
+
+```bash
+tailscale status
+tailscale ip
+```
+
 ### Spazio SD esaurito
 
 Con overlay attivo lo spazio fisico non viene usato normalmente.
@@ -786,7 +814,7 @@ lettura tranne /boot. Spegnimenti bruschi non danneggiano la SD.
 Unici file che sopravvivono al reboot:
 - /boot/OGN-receiver.conf
 - /boot/config.txt
-- /boot/setup_cron.sh
+- /boot/setup_cron.sh  (include auth key Tailscale)
 - /boot/calc_sunset.py
 
 ### Risorse utili
@@ -799,4 +827,4 @@ Unici file che sopravvivono al reboot:
 ---
 
 Documentazione basata su installazione reale in Umbria/Toscana, 1300m s.l.m.
-Callsign operatore: IU6SVB - Versione 1.5 - Settembre 2026
+Callsign operatore: IU6SVB - Versione 1.6 - Settembre 2026
