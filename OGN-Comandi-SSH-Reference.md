@@ -1,276 +1,294 @@
 # Comandi SSH - Stazione OGN Solare
-## Guida rapida verifica e controllo
+## Guida rapida verifica, controllo e ripristino (v1.7)
 
-**Connessione SSH:**
+**Connessione SSH** (sostituisci l'IP con il tuo; la password è `piUserPassword`):
+```bash
+ssh pi@192.168.178.120          # rete locale
+ssh pi@<IP-TAILSCALE>           # da remoto via Tailscale
+ssh-keygen -R <IP>              # se la chiave host è cambiata (nuova SD/RPi)
 ```
-ssh pi@192.168.178.120
-```
+
+> Non incollare mai password o chiavi Tailscale in chat o su GitHub.
 
 ---
 
 ## 1. VERIFICA SISTEMA
 
-### Ora e timezone
 ```bash
-date                          # ora locale
-date -u                       # ora UTC
-timedatectl                   # stato timezone e NTP
-```
-
-### Spazio disco
-```bash
-df -h                         # spazio partizioni
-lsblk                         # dimensione SD card
-```
-
-### Stato overlay filesystem
-```bash
-overlayctl status             # overlay attivo o no
+date; date -u                    # ora locale e UTC
+timedatectl                      # timezone (Europe/Rome) e NTP
+df -h; lsblk                     # spazio e SD
+overlayctl status                # overlay attivo?
+cat /tmp/setup_cron.log          # esito dell'ultimo avvio (setup_cron.sh)
+vcgencmd measure_temp            # temperatura CPU
 ```
 
 ---
 
-## 2. VERIFICA DS3231 (RTC)
+## 2. DS3231 (RTC)
 
-### Carica modulo I2C
 ```bash
 sudo modprobe i2c-dev
+sudo i2cdetect -y 1              # devono comparire 40 (INA219), 57 e 68
+sudo i2cget -y 1 0x68 0x02       # ore UTC (BCD)
+sudo i2cget -y 1 0x68 0x01       # minuti
+sudo i2cget -y 1 0x68 0x00       # secondi
+sudo i2cget -y 1 0x68 0x0f       # bit 7 (0x80) = orologio perso (OSF); 0x00 = valido
 ```
 
-### Verifica DS3231 presente sul bus
+### Taglio relè (registro allarme, scritto da calc_sunset.py)
 ```bash
-sudo i2cdetect -y 1           # deve mostrare 57 e 68
+sudo i2cget -y 1 0x68 0x09       # ore UTC (BCD) - massimo 0x17
+sudo i2cget -y 1 0x68 0x08       # minuti (BCD)
 ```
 
-### Leggi ora attuale dal DS3231
+### Scrivere l'ora sul DS3231 (UTC) e azzerare OSF
 ```bash
-sudo i2cget -y 1 0x68 0x02   # ore UTC (BCD)
-sudo i2cget -y 1 0x68 0x01   # minuti (BCD)
-sudo i2cget -y 1 0x68 0x00   # secondi (BCD)
+T=$(date -u +%H:%M:%S)
+H=$((10#${T:0:2})); M=$((10#${T:3:2})); S=$((10#${T:6:2}))
+b() { printf '%02x' $(( $1 / 10 * 16 + $1 % 10 )); }
+sudo i2cset -y 1 0x68 0x02 0x$(b $H)
+sudo i2cset -y 1 0x68 0x01 0x$(b $M)
+sudo i2cset -y 1 0x68 0x00 0x$(b $S)
+sudo i2cset -y 1 0x68 0x0f 0x00      # OSF a 0
 ```
+(prima assicurati che `date -u` sia corretta: `sudo ntpdate -u pool.ntp.org`)
 
-### Leggi ora taglio rele dal registro allarme
+### Azzerare a mano il flag "orologio perso" (OSF)
 ```bash
-sudo i2cget -y 1 0x68 0x09   # ore taglio rele (BCD)
-sudo i2cget -y 1 0x68 0x08   # minuti taglio rele (BCD)
+sudo i2cget -y 1 0x68 0x0f           # 0x80 o 0x88 = OSF a 1 → l'ATtiny cicla 2h ON / 30 min OFF
+sudo i2cset -y 1 0x68 0x0f 0x00      # azzera; il setup_cron.sh v1.7 lo fa ad ogni avvio
 ```
 
-### Scrivi ora manualmente sul DS3231
+### Simulare la perdita dell'ora (prova sul banco)
 ```bash
-# Sostituisci HH e MM con valori esadecimali BCD
-# Esempio ore 10:30 UTC → 0x10 e 0x30
-sudo i2cset -y 1 0x68 0x00 0x00    # secondi = 0
-sudo i2cset -y 1 0x68 0x01 0x30    # minuti = 30
-sudo i2cset -y 1 0x68 0x02 0x10    # ore = 10
+sudo i2cset -y 1 0x68 0x02 0x00
+sudo i2cset -y 1 0x68 0x01 0x00
+sudo i2cset -y 1 0x68 0x0f 0x80      # OSF = 1 → l'ATtiny accende il relè entro 30 s
 ```
 
-### Conversione decimale → BCD (per i2cset)
+### Conversione decimale → BCD
 ```
-ore 8  → 0x08    minuti 0  → 0x00
-ore 9  → 0x09    minuti 5  → 0x05
-ore 10 → 0x10    minuti 10 → 0x10
-ore 11 → 0x11    minuti 15 → 0x15
-ore 12 → 0x12    minuti 20 → 0x20
-ore 13 → 0x13    minuti 30 → 0x30
-ore 14 → 0x14    minuti 45 → 0x45
-ore 15 → 0x15    minuti 50 → 0x50
-ore 16 → 0x16    minuti 55 → 0x55
-ore 17 → 0x17    minuti 59 → 0x59
+ore 8  → 0x08    ore 16 → 0x16    minuti 5  → 0x05    minuti 30 → 0x30
+ore 9  → 0x09    ore 17 → 0x17    minuti 10 → 0x10    minuti 45 → 0x45
+ore 10 → 0x10    ore 18 → 0x18    minuti 15 → 0x15    minuti 55 → 0x55
 ```
 
 ---
 
-## 3. VERIFICA CRONTAB E SHUTDOWN
+## 3. CRONTAB E SHUTDOWN
 
-### Mostra crontab attuale
 ```bash
-sudo crontab -l
-```
-
-### Ricalcola tramonto e aggiorna crontab
-```bash
-sudo python3 /boot/calc_sunset.py
-```
-
-### Verifica stato servizio cron
-```bash
+sudo crontab -l                       # 3 righe '[ "$(date -u +%H%M)" = "HHMM" ] && shutdown' (shutdown, failsafe, 1700)
+sudo python3 /boot/calc_sunset.py     # ricalcola tramonto, crontab e taglio relè
+sudo python3 /boot/calc_sunset.py --fallback   # solo orari fissi 16:55 / 17:00 UTC
 sudo systemctl status cron
+sudo grep CRON /var/log/syslog | tail -20
+sudo /sbin/shutdown -h now            # spegnimento manuale
 ```
 
-### Shutdown manuale immediato
+Le righe di shutdown scattano **ogni minuto** e confrontano `date -u`, quindi non dipendono dal fuso del demone cron. Per provare come il demone legge gli orari (due righe a un minuto preciso, una locale e una UTC):
 ```bash
-sudo /sbin/shutdown -h now
+T=$(date -d '+3 min' +%M); HL=$(date -d '+3 min' +%-H); HU=$(date -u -d '+3 min' +%-H)
+(sudo crontab -l; echo "$T $HL * * * echo LOCALE >> /tmp/crontest2.log"; echo "$T $HU * * * echo UTC >> /tmp/crontest2.log") | sudo crontab -
+sleep 240; cat /tmp/crontest2.log; date; date -u
+sudo crontab -l | grep -v crontest2 | sudo crontab -     # rimuove le righe di prova
 ```
 
 ---
 
-## 4. VERIFICA NTP
+## 4. NTP
 
-### Sincronizzazione manuale NTP
 ```bash
-sudo ntpdate -u pool.ntp.org
-```
-
-### Verifica sincronizzazione
-```bash
+sudo ntpdate -u pool.ntp.org          # ritorna 0 se riesce
 timedatectl | grep synchronized
 ```
 
 ---
 
-## 5. VERIFICA OGN RECEIVER
+## 5. OGN RECEIVER
 
-### Stato servizio OGN
 ```bash
 sudo systemctl status ogn
-```
-
-### Log OGN in tempo reale
-```bash
 sudo journalctl -u ogn -f
-```
-
-### Verifica connessione glidernet
-```bash
 cat /tmp/glidernet-autossh.log
-```
-
----
-
-## 6. VERIFICA SETUP_CRON.SH
-
-### Mostra contenuto script avvio
-```bash
-cat /boot/setup_cron.sh
-```
-
-### Esegui manualmente script avvio
-```bash
-sudo /boot/setup_cron.sh
-```
-
-### Mostra contenuto calc_sunset.py
-```bash
-cat /boot/calc_sunset.py
-```
-
----
-
-## 7. VERIFICA RETE
-
-### Indirizzo IP
-```bash
-hostname -I
-```
-
-### Test connessione internet
-```bash
-ping -c 3 8.8.8.8
-```
-
-### Verifica interfacce di rete
-```bash
-ip addr show
-```
-
----
-
-## 8. VERIFICA BATTERIA (solo lettura ADC)
-
-### Leggi valore ADC batteria su P4 ATtiny
-Il valore ADC non è direttamente leggibile dal RPi.
-Usa il multimetro sul pin P4 del Digispark.
-
-### Tabella tensioni batteria LiFePO4 2S
-```
-Batteria    P4        ADC     Stato
-6.6V    →  1.90V  →  381  →  Piena
-6.3V    →  1.81V  →  363  →  Buona
-6.0V    →  1.73V  →  347  →  Discreta
-5.7V    →  1.64V  →  330  →  Minima accensione
-5.4V    →  1.56V  →  310  →  Spegnimento sicuro
-5.0V    →  1.44V  →  289  →  Pericolosa
-```
-
----
-
-## 9. FILE IMPORTANTI IN /boot
-
-```bash
-cat /boot/OGN-receiver.conf   # configurazione stazione
-cat /boot/config.txt          # configurazione RPi
-cat /boot/setup_cron.sh       # script avvio automatico
-cat /boot/calc_sunset.py      # calcolo tramonto effemeridi
-```
-
-### Modifica file in /boot
-```bash
-sudo nano /boot/setup_cron.sh
-sudo nano /boot/calc_sunset.py
-sudo nano /boot/OGN-receiver.conf
-```
-
----
-
-## 10. COMANDI UTILI VARI
-
-### Riavvio sistema
-```bash
-sudo reboot
-```
-
-### Storico log cron
-```bash
-sudo grep CRON /var/log/syslog | tail -20
-```
-
-### Processi attivi
-```bash
 ps aux | grep -E "ogn|ppp|autossh"
 ```
 
-### Temperatura CPU
-```bash
-vcgencmd measure_temp
-```
+---
 
-### Versione OS
+## 6. FILE IN /boot
+
 ```bash
-cat /etc/os-release
-uname -a
+ls -la /boot
+cat /boot/OGN-receiver.conf
+cat /boot/config.txt
+cat /boot/setup_cron.sh               # contiene la chiave Tailscale: non copiarla in chat
+cat /boot/calc_sunset.py
+sudo nano /boot/setup_cron.sh         # modifica (persistente)
+sudo bash /boot/setup_cron.sh         # esecuzione manuale
 ```
 
 ---
 
-## 11. PROCEDURE COMUNI
+## 7. RETE E TAILSCALE
 
-### Dopo sostituzione batteria CR2032 DS3231
 ```bash
-sudo modprobe i2c-dev
-# Leggi ora sistema (deve essere corretta via NTP)
-date -u
-# Scrivi ora sul DS3231
-H=$(date -u +%H); M=$(date -u +%M)
-HH=$(printf '%02x' $((10#${H}/10*16 + 10#${H}%10)))
-MM=$(printf '%02x' $((10#${M}/10*16 + 10#${M}%10)))
-sudo i2cset -y 1 0x68 0x00 0x00
-sudo i2cset -y 1 0x68 0x01 0x$MM
-sudo i2cset -y 1 0x68 0x02 0x$HH
+hostname -I
+ip addr show
+ping -c 3 8.8.8.8
+tailscale ip
+tailscale status
+sudo tailscale up --authkey=<LA-TUA-CHIAVE> --accept-routes
 ```
 
-### Se BMS blocca la batteria
+---
+
+## 8. BATTERIA (INA219) E ADC
+
 ```bash
-# Il RPi non risponde → problema hardware
-# Collegare alimentatore 6.5-7.0V direttamente
-# ai terminali batteria per sbloccare il BMS
-# Poi ripristinare alimentazione normale
+python3 /boot/monitor_batteria.py     # tensione, corrente, potenza
+sudo i2cdetect -y 1                   # 40 = INA219
+```
+
+L'ADC dell'ATtiny non è leggibile dalla RPi: misura con il multimetro sul pin P4 del Digispark.
+
+### Tabella Li-ion 3S (R1 = 56 kΩ, R2 = 10 kΩ, VCC ≈ 4.8 V)
+```
+Batteria    P4       ADC     Stato
+12.6V   →  1.91V  →  407  →  Piena
+12.0V   →  1.82V  →  388  →  Buona
+11.1V   →  1.68V  →  358  →  Nominale
+10.5V   →  1.59V  →  339  →  Riaccensione (SOGLIA_BATT_ON = 340)
+10.2V   →  1.55V  →  329  →  Bassa
+ 9.6V   →  1.46V  →  310  →  Spegnimento (SOGLIA_BATT_MIN = 310)
+ 9.0V   →  1.36V  →  291  →  Pericolosa
+```
+
+---
+
+## 9. PYTHON-LIBS PERSISTENTI (INA219)
+
+```bash
+pip3 install --target=/home/pi/python-libs adafruit-circuitpython-ina219
+# se pip rifiuta: aggiungere --break-system-packages
+sudo cp -r /home/pi/python-libs /boot/python-libs
+ls /boot/python-libs
+```
+
+---
+
+## 10. OVERLAY FILESYSTEM
+
+```bash
+overlayctl status
+sudo overlayctl disable && sudo reboot    # per modificare file fuori da /boot
+sudo overlayctl enable  && sudo reboot    # a lavoro finito: protegge la SD
+```
+
+---
+
+## 11. RIPRISTINO SU NUOVA SD / NUOVA RPi
+
+### A) Da immagine OGN pulita + backup di /boot (dal Mac)
+
+```bash
+# 1. scrivi l'immagine OGN sulla SD con Raspberry Pi Imager o balenaEtcher
+#    (http://download.glidernet.org/seb-ogn-rpi-image)
+
+# 2. smonta e rimonta la SD: compare /Volumes/boot
+cd ~/Desktop/ogn-boot-backup
+cp OGN-receiver.conf setup_cron.sh calc_sunset.py monitor_batteria.py /Volumes/boot/
+cp -R python-libs /Volumes/boot/
+cat >> /Volumes/boot/config.txt <<'EOT'
+dtparam=i2c_arm=on
+enable_uart=1
+EOT
+dot_clean /Volumes/boot
+sed -i '' 's/\r$//' /Volumes/boot/setup_cron.sh /Volumes/boot/calc_sunset.py
+diskutil eject /Volumes/boot
+```
+
+```bash
+# 3. inserisci la SD, alimenta la RPi, attendi 3-5 minuti (espansione SD, riavvii)
+ping raspberrypi.local            # oppure cerca l'IP nel router
+ssh-keygen -R <IP>
+ssh pi@<IP>
+```
+
+```bash
+# 4. verifiche sulla RPi
+df -h; overlayctl status
+cat /tmp/setup_cron.log
+date; timedatectl
+sudo crontab -l
+sudo modprobe i2c-dev; sudo i2cdetect -y 1
+sudo i2cget -y 1 0x68 0x0f        # 0x00 = ok
+sudo systemctl status ogn
+tailscale status
+```
+
+```bash
+# 5. se qualcosa manca
+sudo bash /boot/setup_cron.sh; cat /tmp/setup_cron.log
+pip3 install --target=/home/pi/python-libs adafruit-circuitpython-ina219
+sudo cp -r /home/pi/python-libs /boot/python-libs
+sudo overlayctl enable && sudo reboot
+```
+
+### B) Da immagine completa (dal Mac)
+
+```bash
+diskutil list                                   # trova la SD, es. disk6
+diskutil unmountDisk /dev/disk6
+sudo dd if="$HOME/Desktop/ogn-backup.img" of=/dev/rdisk6 bs=4m status=progress
+diskutil eject /dev/disk6
+```
+Usa `"$HOME"` o il percorso completo (la tilde dopo `of=` non viene espansa sotto `sudo`). La SD nuova deve essere grande almeno quanto l'originale.
+
+### Nodo Tailscale
+Dopo la sostituzione rimuovi il vecchio nodo dalla console Tailscale: il nuovo può avere un IP diverso. Annotalo.
+
+---
+
+## 12. BACKUP
+
+```bash
+# solo /boot (consigliato) - dal Mac
+rsync -rtv --no-perms --no-owner --no-group pi@<IP>:/boot/ ~/Desktop/ogn-boot-backup/
+
+# immagine completa - dal Mac
+diskutil list
+diskutil unmountDisk /dev/disk6
+sudo dd if=/dev/rdisk6 of="$HOME/Desktop/ogn-backup.img" bs=4m status=progress
+diskutil eject /dev/disk6
+
+# ridurre l'immagine (su Linux)
+wget https://raw.githubusercontent.com/Drewsif/PiShrink/master/pishrink.sh
+chmod +x pishrink.sh
+sudo ./pishrink.sh -a ogn-backup.img
+```
+Il backup di `/boot` contiene password e chiave Tailscale: tienilo fuori da GitHub.
+
+---
+
+## 13. COMANDI VARI
+
+```bash
+sudo reboot
+cat /etc/os-release; uname -a
+sudo rfkill block wifi            # spegne il WiFi (risparmio energia)
+sudo screen /dev/ttyAMA0 115200   # SIM7080G: AT, AT+CPIN?, AT+CSQ, AT+CEREG?
 ```
 
 ### Verifica completa al mattino
 ```bash
-date && timedatectl && sudo crontab -l && sudo python3 /boot/calc_sunset.py
+date && timedatectl && sudo crontab -l && cat /tmp/setup_cron.log | tail -15 && sudo i2cget -y 1 0x68 0x0f
 ```
+
+### Se il BMS blocca la batteria
+Il RPi non risponde → problema hardware. Collega un alimentatore a ~12-13 V (limite 0.5 A) ai terminali del pacco/BMS (non al sistema) per sbloccarlo, poi ripristina il collegamento normale.
 
 ---
 
-*Stazione OGN Solare - IU6SVB - Umbria/Toscana 1300m s.l.m.*
+*Stazione OGN Solare - IU6SVB - Umbria/Toscana 1300 m s.l.m. - v1.7*
