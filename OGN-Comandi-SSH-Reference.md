@@ -19,7 +19,9 @@ date; date -u                    # ora locale e UTC
 timedatectl                      # timezone (Europe/Rome) e NTP
 df -h; lsblk                     # spazio e SD
 overlayctl status                # overlay attivo?
-cat /tmp/setup_cron.log          # esito dell'ultimo avvio (setup_cron.sh)
+cat /tmp/setup_cron.log          # esito dell'ultimo avvio (solo finché la RPi resta accesa: /tmp è in RAM)
+cat /boot/ogn-eventi.log         # avvii e shutdown dei giorni scorsi (persistente)
+cat /boot/setup_cron.last.log    # log completo dell'ultimo avvio (persistente)
 vcgencmd measure_temp            # temperatura CPU
 ```
 

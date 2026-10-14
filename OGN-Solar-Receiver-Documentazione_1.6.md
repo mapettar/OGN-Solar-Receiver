@@ -533,10 +533,12 @@ def scrivi_allarme_ds3231(minuti_giorno):
 
 def riga_shutdown(minuti_giorno):
     """Riga di cron che scatta ogni minuto e spegne SOLO se l'ora UTC coincide.
-    Il confronto usa 'date -u', quindi non dipende dal fuso orario del demone cron
-    (che sulla RPi puo risultare locale o UTC a seconda dell'avvio)."""
+    Il confronto usa 'date -u', quindi non dipende dal fuso orario del demone cron.
+    Prima di spegnere scrive una riga in /boot/ogn-eventi.log (l'unico posto che
+    sopravvive allo spegnimento: /tmp e /var/log sono in RAM)."""
     hhmm_utc = "%02d%02d" % (minuti_giorno // 60, minuti_giorno % 60)
-    return '* * * * * [ "$(date -u +\\%H\\%M)" = "' + hhmm_utc + '" ] && /sbin/shutdown -h now'
+    return ('* * * * * [ "$(date -u +\\%H\\%M)" = "' + hhmm_utc + '" ] && { echo "$(date -u \'+\\%F \\%T\') UTC shutdown '
+            + hhmm_utc + '" >> /boot/ogn-eventi.log; sync; /sbin/shutdown -h now; }')
 
 
 def aggiorna_crontab(o):
@@ -638,6 +640,12 @@ fi
 # (crontab -u root -l; echo "*/10 * * * * python3 /boot/monitor_batteria.py >> /tmp/batteria.log 2>&1") | crontab -u root -
 
 echo "=== fine setup_cron.sh ==="
+
+# 9. Registro che sopravvive allo spegnimento (in /boot): ultimo log + riga per ogni avvio
+cp /tmp/setup_cron.log /boot/setup_cron.last.log
+echo "$(date -u '+%F %T') UTC avvio NTP_OK=$NTP_OK" >> /boot/ogn-eventi.log
+tail -n 200 /boot/ogn-eventi.log > /tmp/ogn-eventi.tmp && cat /tmp/ogn-eventi.tmp > /boot/ogn-eventi.log
+sync
 ```
 
 ```bash
@@ -843,6 +851,17 @@ sudo i2cget -y 1 0x68 0x0f         # → 0x00
 ### Prova tetto 19:00 CEST
 
 Scrivi sul DS3231 le 16:58 UTC (`0x16`/`0x58`) con OSF a 0: entro 30 s dopo le 17:00 UTC il relè deve aprirsi, anche con allarme azzerato (`i2cset … 0x09 0x00`).
+
+### Registro che sopravvive allo spegnimento
+
+`/tmp` e `/var/log` sono in RAM (overlay) e si perdono ad ogni spegnimento. Per verificare cosa è successo il giorno prima, `calc_sunset.py` e `setup_cron.sh` scrivono in `/boot` (persistente):
+
+```bash
+cat /boot/ogn-eventi.log          # una riga per ogni avvio e per ogni shutdown (UTC), ultime 200
+cat /boot/setup_cron.last.log     # log completo dell'ultimo avvio
+```
+
+Esempio: `2026-10-14 14:58:01 UTC shutdown 1458` e il giorno dopo `2026-10-15 08:03:12 UTC avvio NTP_OK=1`. I file si possono leggere anche dal Mac inserendo la SD.
 
 ### Ciclo giornaliero atteso
 
