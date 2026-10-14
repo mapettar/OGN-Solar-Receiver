@@ -11,6 +11,7 @@
 > - Partitore batteria P4 con **R1 = 56 kΩ / R2 = 10 kΩ** e nuove soglie ADC
 > - **Tetto assoluto 19:00 CEST**: la stazione si spegne sempre entro quell'ora, anche se le effemeridi darebbero più tardi
 > - **Orologio DS3231 perso** (alimentazione a zero): l'ATtiny riaccende comunque la RPi, che si risincronizza via NTP
+> - **Shutdown indipendente dal fuso del cron** (misurato: il cron della RPi leggeva l'ora locale)
 > - **Corretto errore nella formula del tramonto** di `calc_sunset.py` (v1.6 dava un tramonto quasi costante tutto l'anno)
 > - Nuova sezione **Ripristino su nuova SD** con tutti i comandi SSH e da Mac
 > - Monitoraggio INA219, accesso Tailscale, notizie su RPi Zero 2W
@@ -467,8 +468,8 @@ MARGINE_RELE     = 88          # minuti prima del tramonto: taglio rele ATtiny
 TETTO_SHUTDOWN   = (16, 55)    # UTC = 18:55 CEST
 TETTO_RELE       = (17, 0)     # UTC = 19:00 CEST (deve coincidere con lo sketch ATtiny)
 INIZIO_GIORNO    = 8           # UTC: l'ATtiny accende alle 08:00 UTC
-# Cron e DS3231 lavorano in UTC. Con timezone Europe/Rome impostata dopo
-# l'avvio del demone cron, cron continua a leggere gli orari come UTC.
+# Il DS3231 lavora in UTC. Le righe di cron controllano ogni minuto 'date -u':
+# lo shutdown non dipende dal fuso con cui il demone cron legge il crontab.
 
 
 def calcola_tramonto(lat, lon, data=None):
@@ -530,13 +531,21 @@ def scrivi_allarme_ds3231(minuti_giorno):
         subprocess.run(["i2cset", "-y", "1", "0x68", "0x%02x" % reg, "0x%02x" % val])
 
 
+def riga_shutdown(minuti_giorno):
+    """Riga di cron che scatta ogni minuto e spegne SOLO se l'ora UTC coincide.
+    Il confronto usa 'date -u', quindi non dipende dal fuso orario del demone cron
+    (che sulla RPi puo risultare locale o UTC a seconda dell'avvio)."""
+    hhmm_utc = "%02d%02d" % (minuti_giorno // 60, minuti_giorno % 60)
+    return '* * * * * [ "$(date -u +\\%H\\%M)" = "' + hhmm_utc + '" ] && /sbin/shutdown -h now'
+
+
 def aggiorna_crontab(o):
     r = subprocess.run(["crontab", "-u", "root", "-l"], capture_output=True, text=True)
     linee = [l for l in r.stdout.split("\n") if l.strip() and "shutdown" not in l]
-    linee.append("%d %d * * * /sbin/shutdown -h now" % (o["shutdown"] % 60, o["shutdown"] // 60))
-    linee.append("%d %d * * * /sbin/shutdown -h now" % (o["failsafe"] % 60, o["failsafe"] // 60))
+    linee.append(riga_shutdown(o["shutdown"]))
+    linee.append(riga_shutdown(o["failsafe"]))
     # cintura di sicurezza: tetto fisso 17:00 UTC (19:00 CEST) sempre presente
-    linee.append("0 17 * * * /sbin/shutdown -h now")
+    linee.append(riga_shutdown(TETTO_RELE[0] * 60 + TETTO_RELE[1]))
     uniche = []
     for l in linee:               # niente righe duplicate
         if l not in uniche:
@@ -648,6 +657,7 @@ Ogni avvio RPi (setup_cron.sh):
        shutdown cron = min(tramonto - 90 min, 16:55 UTC)
        failsafe cron = shutdown + 60 min (max 17:00 UTC)
        cintura cron  = 17:00 UTC fisso
+       (righe ogni minuto che confrontano date -u: indipendenti dal fuso del cron)
        taglio relè   = min(tramonto - 88 min, 17:00 UTC) → registri 0x07-0x09 DS3231
   3. NTP assente → solo orari fissi (shutdown 16:55 UTC, taglio 17:00 UTC)
 
@@ -814,7 +824,7 @@ sudo i2cget -y 1 0x68 0x0f          # bit 7 = 0 → orologio valido
 ### Verifica crontab e log di avvio
 
 ```bash
-sudo crontab -l
+sudo crontab -l                  # 3 righe con date -u ... shutdown
 cat /tmp/setup_cron.log
 sudo python3 /boot/calc_sunset.py
 ```
@@ -998,14 +1008,14 @@ Controlla poi: batteria sopra 10.5 V (ADC ≥ 340), relè su HIGH trigger, SDA s
 
 ### Si spegne troppo presto
 
-- Cron in ora locale: se lo shutdown avviene 2 ore prima, il demone cron legge gli orari come locali e non UTC. Controlla con `sudo crontab -l` e `date` e modifica il crontab o fai ripartire cron dopo il cambio timezone.
+- Con `calc_sunset.py` v1.7.1 il fuso del demone cron non conta più (vedi sotto). Se hai una versione precedente e lo shutdown avviene 2 ore prima, il demone legge gli orari come locali: aggiorna lo script.
 - Batteria sotto 9.6 V sotto carico: l'ATtiny apre il relè (protezione batteria).
 
 ### Si spegne tardi o non si spegne
 
 - `calc_sunset.py` ancora v1.6 → sostituiscilo.
 - Hai cambiato ora solare/legale senza aggiornare i tetti: vedi tabella nella sezione tetto.
-- Controlla `sudo crontab -l`: devono esserci tre righe `shutdown` (la terza è `0 17 * * *`).
+- Controlla `sudo crontab -l`: devono esserci tre righe `date -u +%H%M ... shutdown` (shutdown, failsafe e tetto `1700`).
 
 ### Relè acceso 2 ore, spento 30 minuti, poi di nuovo acceso
 
@@ -1026,15 +1036,13 @@ Senza batteria tampone il DS3231 riparte da 00:00. L'ATtiny lo riconosce e accen
 
 ### Lo shutdown cron parte all'ora sbagliata
 
-Il crontab usa orari **UTC**. Controlla come li interpreta il demone cron:
+Sulla RPi il demone cron può leggere gli orari del crontab in ora **locale** o in **UTC** a seconda dell'avvio (misurato: sulla stazione di prova leggeva l'ora locale, quindi `58 14 * * *` spegneva alle 14:58 CEST e non alle 16:58). Per non dipendere dal fuso, `calc_sunset.py` v1.7.1 scrive righe che scattano **ogni minuto** e confrontano `date -u`:
 
-```bash
-echo '* * * * * date +\%H:\%M >> /tmp/crontest.log' | sudo tee /tmp/ct >/dev/null
-(sudo crontab -l; cat /tmp/ct) | sudo crontab -
-sleep 70; cat /tmp/crontest.log; date; date -u
+```
+* * * * * [ "$(date -u +\%H\%M)" = "1458" ] && /sbin/shutdown -h now
 ```
 
-Se l'ora scritta in `crontest.log` coincide con `date -u`, cron lavora in UTC (corretto). Se coincide con `date` (locale), gli orari del crontab vanno scritti in ora locale, oppure va messa la riga `CRON_TZ=UTC` all'inizio del crontab. Poi rimuovi la riga di prova: `sudo crontab -e`.
+Verifica: `sudo crontab -l` deve mostrare tre righe di questo tipo (shutdown, failsafe, tetto 1700 UTC). Per provare il fuso del demone: aggiungi due righe a un minuto preciso (una con ora locale, una con UTC) e guarda quale scatta; la procedura è nella guida SSH.
 
 ### Il relè riparte in loop dopo lo shutdown
 
