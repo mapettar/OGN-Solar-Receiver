@@ -1,0 +1,13 @@
+[Unit]
+Description=OGN: scrive l'ora sul DS3231 e imposta lo spegnimento serale
+After=network-online.target time-sync.target
+Wants=network-online.target time-sync.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ogn-boot-setup.sh
+RemainAfterExit=yes
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target
