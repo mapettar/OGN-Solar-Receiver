@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 # monitor_batteria.py v1.8 (Bookworm, Raspberry Pi 3A+) - INA219 (0x40) su GPIO2/GPIO3, 3.3V
 # - Nessuna libreria esterna: legge /dev/i2c-1 direttamente (serve solo Python 3).
-# - Pacco 2S LiFePO4 (nominale 6.4 V, pieno ~7.2 V, vuoto ~5.0 V). Per un altro pacco
-#   cambia SOGLIE_STATO qui sotto.
+# - Due profili di pacco: 2s-lifepo4 (nominale 6.4 V, pieno ~7.2 V, vuoto ~5.0 V, default)
+#   e 3s-liion (nominale 11.1 V, pieno 12.6 V). Si sceglie con --pacco o con la
+#   variabile d'ambiente OGN_PACCO.
 # - Corrente dalla tensione sullo shunt (SHUNT_OHM = 0.1 ohm, come i moduli INA219 standard):
 #   non serve la calibrazione.
-# Uso:  python3 monitor_batteria.py          (testo leggibile)
-#       python3 monitor_batteria.py --csv    (una riga: data,V,mA,W,stato)
+# Uso:  python3 monitor_batteria.py                      (testo leggibile, pacco 2S)
+#       python3 monitor_batteria.py --pacco 3s-liion     (stazione con pacco 3S)
+#       python3 monitor_batteria.py --csv                (una riga: data,V,mA,W,stato)
 import datetime
 import fcntl
 import os
@@ -17,14 +19,13 @@ I2C_BUS = "/dev/i2c-1"
 INA219_ADDR = 0x40
 SHUNT_OHM = 0.1
 
-# (tensione minima in V, stato): a riposo o carico leggero. La curva LiFePO4 e piatta:
-# sono indicazioni di massima, non una misura di carica.
-SOGLIE_STATO = [
-    (7.0, "PIENA"),
-    (6.6, "BUONA"),
-    (6.3, "DISCRETA"),
-    (5.8, "BASSA"),
-]
+# Per ogni profilo: (tensione minima in V, stato), a riposo o carico leggero.
+# La curva LiFePO4 e piatta: sono indicazioni di massima, non una misura di carica.
+PROFILI = {
+    "2s-lifepo4": [(7.0, "PIENA"), (6.6, "BUONA"), (6.3, "DISCRETA"), (5.8, "BASSA")],
+    "3s-liion":   [(12.0, "PIENA"), (11.1, "BUONA"), (10.5, "DISCRETA"), (9.6, "BASSA")],
+}
+PROFILO_DEFAULT = "2s-lifepo4"
 STATO_MINIMO = "CRITICA!"
 
 I2C_SLAVE = 0x0703
@@ -53,22 +54,34 @@ def converti(raw_bus, raw_shunt):
     return volt, ma, watt
 
 
-def stato_batteria(volt):
-    for soglia, nome in SOGLIE_STATO:
+def stato_batteria(volt, profilo=PROFILO_DEFAULT):
+    for soglia, nome in PROFILI[profilo]:
         if volt >= soglia:
             return nome
     return STATO_MINIMO
 
 
+def scegli_profilo(argv):
+    """--pacco NOME oppure variabile OGN_PACCO; se il nome non esiste, esce con un errore."""
+    nome = os.environ.get("OGN_PACCO", PROFILO_DEFAULT)
+    if "--pacco" in argv:
+        i = argv.index("--pacco")
+        nome = argv[i + 1] if i + 1 < len(argv) else ""
+    if nome not in PROFILI:
+        sys.exit("Profilo pacco sconosciuto: '%s'. Validi: %s" % (nome, ", ".join(sorted(PROFILI))))
+    return nome
+
+
 def main():
     csv = "--csv" in sys.argv
+    profilo = scegli_profilo(sys.argv)
     fd = os.open(I2C_BUS, os.O_RDWR)
     try:
         fcntl.ioctl(fd, I2C_SLAVE, INA219_ADDR)
         volt, ma, watt = converti(leggi_registro(fd, REG_BUS), leggi_registro(fd, REG_SHUNT))
     finally:
         os.close(fd)
-    stato = stato_batteria(volt)
+    stato = stato_batteria(volt, profilo)
     ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     if csv:
         print(f"{ts},{volt:.3f},{ma:.0f},{watt:.2f},{stato}")

@@ -9,6 +9,6 @@
 | `rpi-boot/monitor_batteria.py` | `/boot/` sulla RPi | Lettura INA219 (pacco 3S, librerie Adafruit) |
 | `rpi-bookworm/ogn-boot-setup.sh` + `.service` | `/usr/local/sbin/` e `/etc/systemd/system/` | Raspberry Pi 3A+ con Bookworm: scrive l'ora sul DS3231 dopo la sincronizzazione e (con `SCHEDULE=on` in `/etc/default/ogn-boot-setup`) imposta lo spegnimento serale |
 | `rpi-bookworm/calc_sunset.py` | `/usr/local/sbin/` | Come `rpi-boot/calc_sunset.py` |
-| `rpi-bookworm/monitor_batteria.py` | `/usr/local/sbin/` | Lettura INA219 senza librerie, soglie pacco 2S LiFePO4. `--csv` per i log |
+| `rpi-bookworm/monitor_batteria.py` | `/usr/local/sbin/` | Lettura INA219 senza librerie. Profili `2s-lifepo4` (default) e `3s-liion` con `--pacco`; `--csv` per i log |
 
 Procedura di installazione e ripristino: vedi `OGN-Solar-Receiver-Documentazione_1.6.md` (versione 1.7) e `OGN-Comandi-SSH-Reference.md`.
