@@ -1,5 +1,5 @@
 #!/bin/bash
-# ogn-boot-setup.sh v1.0 - adattamento di setup_cron.sh v1.7 a Raspberry Pi OS Bookworm (Pi 3A+)
+# ogn-boot-setup.sh v1.1 (controllo sincronizzazione con ntpq) - adattamento di setup_cron.sh v1.7 a Raspberry Pi OS Bookworm (Pi 3A+)
 # Installazione: /usr/local/sbin/ogn-boot-setup.sh (root:root, 755), lanciato da ogn-boot-setup.service.
 # - NON installa pacchetti e NON tocca Tailscale (gia installato a mano).
 # - NON usa l'overlay RTC del kernel: il DS3231 si scrive con i2cset all'indirizzo 0x68.
@@ -18,11 +18,25 @@ EVENTI=/boot/ogn-eventi.log
 timedatectl set-timezone Europe/Rome
 modprobe i2c-dev
 
-# Attesa sincronizzazione dell'ora di sistema (max 6 x 20 s)
+# Sincronizzazione VERA dell'ora di sistema. Il flag NTPSynchronized di timedatectl NON e affidabile
+# qui: con ntpd puo valere "yes" mentre l'ora e ancora quella vecchia salvata da fake-hwclock
+# (v1.0 scriveva quell'ora sul DS3231 a ogni avvio). Si considera sincronizzato solo quando ntpd ha
+# scelto un server (riga che inizia con "*" in ntpq -pn) o, con timesyncd, esiste il file
+# /run/systemd/timesync/synchronized. Se nessuno dei due e disponibile: NTP_OK=0, il DS3231 non si tocca.
+ntp_sincronizzato() {
+  if command -v ntpq >/dev/null 2>&1 && systemctl is-active --quiet ntp; then
+    ntpq -pn 2>/dev/null | grep -q '^\*'
+  elif [ -e /run/systemd/timesync/synchronized ]; then
+    return 0
+  else
+    return 1
+  fi
+}
+# Attesa max 18 x 10 s (TimeoutStartSec=300)
 NTP_OK=0
-for i in 1 2 3 4 5 6; do
-  if [ "$(timedatectl show -p NTPSynchronized --value)" = "yes" ]; then NTP_OK=1; break; fi
-  sleep 20
+for i in $(seq 1 18); do
+  if ntp_sincronizzato; then NTP_OK=1; break; fi
+  sleep 10
 done
 echo "NTP_OK=$NTP_OK SCHEDULE=$SCHEDULE"
 
