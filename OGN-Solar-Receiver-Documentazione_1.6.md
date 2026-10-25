@@ -124,6 +124,10 @@ Note:
 
 ### Collegamenti ATtiny85
 
+![Pinout Digispark ATtiny85](images/digispark-pinout.png)
+
+*Pinout della Digispark (immagine di terzi). Attenzione: P3 e P4 sono usati anche dal collegamento USB; P3 ha il pull-up da 1,5 kΩ. Su alcune cloni P5 è configurato come reset.*
+
 ```
 ATtiny85 Digispark      Collegamento
 ------------------      ------------
