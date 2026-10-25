@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 1110" width="1700" height="1110" font-family="Segoe UI, Arial, sans-serif">
-<rect width="1700" height="1110" fill="#fff"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1700 1135" width="1700" height="1135" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1700" height="1135" fill="#fff"/>
 <text x="40" y="34" font-size="24" fill="#222" text-anchor="start" font-weight="bold">Stazione OGN solare – schema dei collegamenti (pacco 3S)</text>
 <text x="40" y="54" font-size="14" fill="#555" text-anchor="start" font-weight="normal">Schema semplificato per il cablaggio: tutti i simboli di massa (GND) sono collegati tra loro.</text>
 <rect x="40" y="90" width="150" height="70" rx="8" fill="#fff8e1" stroke="#555" stroke-width="2"/>
@@ -78,11 +78,18 @@
 <text x="778" y="378" font-size="13" fill="#222" text-anchor="start" font-weight="normal">D1 1N5817</text>
 <polyline points="760,382 760,560" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="760" cy="470" r="5" fill="#e65100"/>
-<polyline points="760,470 805,470 805,490" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<g stroke="#222" stroke-width="3"><line x1="793" y1="494" x2="817" y2="494"/><line x1="793" y1="502" x2="817" y2="502"/></g>
-<text x="823" y="503" font-size="14" fill="#222" text-anchor="start" font-weight="normal">C1 100 µF</text>
-<polyline points="805,506 805,525" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-<g stroke="#222" stroke-width="2.5"><line x1="805" y1="525" x2="805" y2="533"/><line x1="793" y1="533" x2="817" y2="533"/><line x1="797" y1="538" x2="813" y2="538"/><line x1="801" y1="543" x2="809" y2="543"/></g>
+<polyline points="760,470 940,470" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="870" cy="470" r="5" fill="#e65100"/>
+<polyline points="870,470 870,490" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="3"><line x1="858" y1="494" x2="882" y2="494"/><line x1="858" y1="502" x2="882" y2="502"/></g>
+<text x="852" y="503" font-size="14" fill="#222" text-anchor="end" font-weight="normal">C1 100 µF</text>
+<polyline points="870,506 870,525" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="2.5"><line x1="870" y1="525" x2="870" y2="533"/><line x1="858" y1="533" x2="882" y2="533"/><line x1="862" y1="538" x2="878" y2="538"/><line x1="866" y1="543" x2="874" y2="543"/></g>
+<polyline points="940,470 940,490" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="3"><line x1="928" y1="494" x2="952" y2="494"/><line x1="928" y1="502" x2="952" y2="502"/></g>
+<text x="958" y="503" font-size="14" fill="#222" text-anchor="start" font-weight="normal">C1b 100 nF (104)</text>
+<polyline points="940,506 940,525" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="2.5"><line x1="940" y1="525" x2="940" y2="533"/><line x1="928" y1="533" x2="952" y2="533"/><line x1="932" y1="538" x2="948" y2="538"/><line x1="936" y1="543" x2="944" y2="543"/></g>
 <rect x="720" y="560" width="200" height="200" rx="8" fill="#e8eaf6" stroke="#555" stroke-width="2"/>
 <text x="820" y="582" font-size="16" fill="#222" text-anchor="middle" font-weight="bold"></text>
 <text x="820" y="690" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">ATtiny85 Digispark</text>
@@ -96,13 +103,7 @@
 <text x="820" y="730" font-size="12" fill="#c62828" text-anchor="middle" font-weight="normal">P2: NON usare</text>
 <polyline points="770,760 770,772" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <g stroke="#222" stroke-width="2.5"><line x1="770" y1="772" x2="770" y2="780"/><line x1="758" y1="780" x2="782" y2="780"/><line x1="762" y1="785" x2="778" y2="785"/><line x1="766" y1="790" x2="774" y2="790"/></g>
-<polyline points="950,330 950,395" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="950" cy="330" r="5" fill="#e65100"/>
-<rect x="942" y="395" width="16" height="50" fill="#fff" stroke="#e65100" stroke-width="2.5"/>
-<text x="966" y="425" font-size="14" fill="#222" text-anchor="start" font-weight="normal">R3 470 Ω</text>
-<polyline points="950,445 950,600" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="920,600 1040,600 1040,570 1100,570" fill="none" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="950" cy="600" r="5" fill="#2e7d32"/>
 <polyline points="920,640 1060,640 1060,610 1100,610" fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="1100" y="500" width="160" height="200" rx="8" fill="#fffde7" stroke="#555" stroke-width="2"/>
 <text x="1180" y="522" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">BSS138</text>
@@ -196,9 +197,10 @@
 <text x="1550" y="632" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">Il BSS138 serve solo per</text>
 <text x="1550" y="650" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">DS3231 e ATtiny (5 V).</text>
 <text x="40" y="1040" font-size="15" fill="#222" text-anchor="start" font-weight="bold">Note</text>
-<text x="40" y="1060" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• Il pacco batteria ha il BMS a bordo: il caricatore va sul BMS (P+/P−), non direttamente sulle celle.</text>
-<text x="40" y="1078" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• L'interruttore apre solo il carico (TPS54560): caricatore, partitore P4 e INA219 stanno sul lato batteria, prima dell'interruttore.</text>
-<text x="40" y="1096" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• Pacco 3S: R1 = 56 kΩ, R2 = 10 kΩ, C2 = 100 nF. Con un pacco diverso (es. 2S LiFePO4) partitore e soglie dello sketch vanno ricalcolati.</text>
+<text x="40" y="1058" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• Il pacco batteria ha il BMS a bordo: il caricatore va sul BMS (P+/P−), non direttamente sulle celle.</text>
+<text x="40" y="1074" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• L'interruttore apre solo il carico (TPS54560): caricatore, partitore P4 e INA219 stanno sul lato batteria, prima dell'interruttore.</text>
+<text x="40" y="1090" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• C1 (elettrolitico, + sul nodo) e C1b (ceramico 104) stanno in parallelo sull'alimentazione dell'ATtiny, subito dopo D1, vicino al Digispark.</text>
+<text x="40" y="1106" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• Pacco 3S: R1 = 56 kΩ, R2 = 10 kΩ, C2 = 100 nF. Con un pacco diverso (es. 2S LiFePO4) partitore e soglie dello sketch vanno ricalcolati.</text>
 <line x1="1010" y1="1030" x2="1044" y2="1030" stroke="#c62828" stroke-width="4"/>
 <text x="1052" y="1035" font-size="13" fill="#222" text-anchor="start" font-weight="normal">+ batteria</text>
 <line x1="1210" y1="1030" x2="1244" y2="1030" stroke="#e65100" stroke-width="4"/>

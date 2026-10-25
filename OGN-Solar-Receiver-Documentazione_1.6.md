@@ -84,8 +84,8 @@ Alle 10:00 CEST un ATtiny85 legge l'orario da un RTC DS3231 e chiude un relè ch
 | R2 | 10 kΩ | Partitore batteria (lato basso) |
 | C2 | 100 nF ceramico | Tra P4 e GND, stabilizza la lettura ADC |
 | D1 | 1N5817 Schottky | In serie su VCC ATtiny |
-| C1 | 100 µF elettrolitico | Su VCC ATtiny |
-| R3 | 470 Ω | Pull-up SCL su P3 verso 5 V |
+| C1 | 100 µF elettrolitico (+ sul nodo VCC) | Su VCC ATtiny, dopo D1 |
+| C1b | 100 nF ceramico (104) | In parallelo a C1, vicino al Digispark |
 
 ---
 
@@ -138,7 +138,7 @@ ATtiny85 Digispark      Collegamento
 P0 (SDA)         ------ SDA DS3231 (lato HV del BSS138)
 P1 (Relè)        ------ IN modulo relè (HIGH trigger)
 P2                      NON USARE (problemi bootloader v1.6)
-P3 (SCL)         ------ SCL DS3231 (lato HV del BSS138) + pull-up 470 Ω a 5 V
+P3 (SCL)         ------ SCL DS3231 (lato HV del BSS138)  [pull-up già sul Digispark (1,5 kΩ) e sul modulo DS3231]
 P4 (A2, ADC)     ------ nodo partitore batteria (+ 100 nF verso GND)
 5V               ------ catodo 1N5817 (anodo sul 5.1 V) + 100 µF verso GND
 GND              ------ GND
@@ -216,8 +216,7 @@ P1 HIGH = relè chiuso  = RPi ACCESA
 
 1. **Partitore:** + batteria → R1 (56 kΩ) → nodo P4 → R2 (10 kΩ) → GND, con 100 nF tra P4 e GND.
 2. **Diodo:** 5.1 V → anodo 1N5817 → catodo → VCC Digispark. Evita i reset quando la RPi assorbe corrente all'avvio.
-3. **Pull-up SCL:** 5 V → 470 Ω → P3.
-4. **Condensatore:** VCC Digispark → 100 µF → GND.
+3. **Condensatori:** VCC Digispark → 100 µF (+ sul nodo) → GND, e 100 nF (104) in parallelo. Nessuna resistenza di pull-up aggiuntiva su SCL.
 5. **BSS138:** lato LV su RPi GPIO2/GPIO3 + 3.3 V, lato HV su DS3231 e ATtiny P0/P3 + 5 V, GND comune.
 6. **INA219:** pin 3 e 5 della RPi, 3.3 V, GND; VIN+/VIN− come da schema.
 7. **Interruttore:** tra uscita BMS (P+) e IN+ del TPS54560. Caricatore, partitore e INA219 prima dell'interruttore.
