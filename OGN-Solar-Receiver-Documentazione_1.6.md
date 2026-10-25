@@ -142,6 +142,10 @@ GND              ------ GND
 
 ### Level shifter BSS138
 
+![Pinout GPIO Raspberry Pi](images/rpi-gpio-pinout.png)
+
+*Connettore GPIO a 40 pin (immagine di terzi, foto di una Pi 2 Model B: il connettore è identico a quello della Pi 3A+). I2C della stazione: pin 3 = GPIO2 (SDA), pin 5 = GPIO3 (SCL), 3,3 V sul pin 1, GND sul pin 6 o 9.*
+
 ```
 LV  (3.3V) -------- RPi 3.3 V
 HV  (5.0V) -------- 5.1 V alimentazione
