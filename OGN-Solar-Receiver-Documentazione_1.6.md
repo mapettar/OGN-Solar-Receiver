@@ -93,6 +93,10 @@ Alle 10:00 CEST un ATtiny85 legge l'orario da un RTC DS3231 e chiude un relè ch
 
 ### Schema generale
 
+![Schema dei collegamenti tra i moduli (pacco 3S)](images/schema-collegamenti-3s.png)
+
+*Schema dei collegamenti per il pacco 3S (file modificabile: `images/schema-collegamenti-3s.svg`). Sotto trovi lo stesso schema in forma testuale.*
+
 ```
 Pannello 20W 18V
       |
