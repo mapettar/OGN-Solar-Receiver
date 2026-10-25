@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-# calc_sunset.py v1.7 - calcolo tramonto senza librerie esterne
+# calc_sunset.py v1.8 - calcolo tramonto senza librerie esterne
+# v1.8: avvio SEMPRE alle 10:00 ora locale (estate e inverno) senza toccare lo sketch ATtiny:
+#       il DS3231 non e piu in UTC puro ma in 'ora locale - 2 h' (= UTC in estate, UTC-1 in inverno),
+#       cosi la soglia fissa 08:00 dello sketch cade sempre alle 10:00 locali.
+#       --notte (cron, 5 min prima dello shutdown): se domani cambia l'ora legale/solare,
+#       riscrive ora e allarme del DS3231 gia nella base di domani.
 # - imposta lo shutdown nel crontab (tramonto - 90 min)
 # - scrive nel registro allarme DS3231 l'ora di taglio del rele (tramonto - 88 min)
 # - TETTO ASSOLUTO: shutdown max 16:55 UTC, taglio rele max 17:00 UTC (= 19:00 CEST)
@@ -10,6 +15,7 @@ import math
 import datetime
 import subprocess
 import sys
+from zoneinfo import ZoneInfo
 
 # === CONFIGURAZIONE ===
 LAT = 43.349721
@@ -18,8 +24,11 @@ MARGINE_SHUTDOWN = 90          # minuti prima del tramonto: shutdown cron
 MARGINE_RELE     = 88          # minuti prima del tramonto: taglio rele ATtiny
 TETTO_SHUTDOWN   = (16, 55)    # UTC = 18:55 CEST
 TETTO_RELE       = (17, 0)     # UTC = 19:00 CEST (deve coincidere con lo sketch ATtiny)
-INIZIO_GIORNO    = 8           # UTC: l'ATtiny accende alle 08:00 UTC
-# Il DS3231 lavora in UTC. Le righe di cron controllano ogni minuto 'date -u':
+INIZIO_GIORNO    = 8           # valore DS3231: l'ATtiny accende quando il DS3231 segna 08:00
+TZ_LOCALE        = ZoneInfo("Europe/Rome")
+ORA_AVVIO_LOCALE = 10          # avvio voluto, ora locale
+MARGINE_NOTTE    = 5           # minuti prima dello shutdown: riscrittura DS3231 se cambia l'ora
+# Il DS3231 segna UTC + shift (shift = 0 con ora legale, -1 con ora solare). Le righe di cron controllano ogni minuto 'date -u':
 # lo shutdown non dipende dal fuso con cui il demone cron legge il crontab.
 
 
@@ -68,6 +77,28 @@ def calcola_orari(data=None):
     return {"tramonto": tramonto, "shutdown": sh, "failsafe": failsafe, "rele": re}
 
 
+def shift_ore(quando):
+    """Differenza DS3231 - UTC in ore: 0 con ora legale (CEST), -1 con ora solare (CET)."""
+    off = quando.astimezone(TZ_LOCALE).utcoffset().total_seconds() / 3600
+    return int(round(off)) - (ORA_AVVIO_LOCALE - INIZIO_GIORNO)
+
+
+def shift_oggi():
+    return shift_ore(datetime.datetime.now(datetime.timezone.utc))
+
+
+def shift_domani():
+    """Shift valido domattina alle 10:00 locali (tiene conto del cambio ora della notte)."""
+    d = datetime.datetime.now(TZ_LOCALE).date() + datetime.timedelta(days=1)
+    return shift_ore(datetime.datetime(d.year, d.month, d.day, ORA_AVVIO_LOCALE, 0, tzinfo=TZ_LOCALE))
+
+
+def scrivi_ora_ds3231(shift):
+    t = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=shift)
+    for reg, val in ((0x02, t.hour), (0x01, t.minute), (0x00, t.second)):
+        subprocess.run(["i2cset", "-y", "1", "0x68", "0x%02x" % reg, "0x%02x" % dec2bcd(val)])
+
+
 def dec2bcd(val):
     return ((val // 10) << 4) | (val % 10)
 
@@ -76,8 +107,8 @@ def hhmm(minuti):
     return "%02d:%02d" % (minuti // 60, minuti % 60)
 
 
-def scrivi_allarme_ds3231(minuti_giorno):
-    ore, minuti = divmod(minuti_giorno, 60)
+def scrivi_allarme_ds3231(minuti_giorno, shift=0):
+    ore, minuti = divmod(minuti_giorno + shift * 60, 60)
     for reg, val in ((0x07, 0x00), (0x08, dec2bcd(minuti)), (0x09, dec2bcd(ore))):
         subprocess.run(["i2cset", "-y", "1", "0x68", "0x%02x" % reg, "0x%02x" % val])
 
@@ -92,9 +123,32 @@ def riga_shutdown(minuti_giorno):
             + hhmm_utc + '" >> /boot/ogn-eventi.log; sync; /sbin/shutdown -h now; }')
 
 
+def riga_notte(minuti_giorno):
+    """Riga di cron: 5 minuti prima dello shutdown riallinea il DS3231 alla base di domani."""
+    hhmm_utc = "%02d%02d" % (minuti_giorno // 60, minuti_giorno % 60)
+    return ('* * * * * [ "$(date -u +\\%H\\%M)" = "' + hhmm_utc
+            + '" ] && /usr/bin/python3 /usr/local/sbin/calc_sunset.py --notte >> /var/log/ogn-boot-setup.log 2>&1')
+
+
+def prepara_notte():
+    oggi, domani = shift_oggi(), shift_domani()
+    if oggi == domani:
+        print("--notte: nessun cambio ora, DS3231 invariato (shift %d)" % oggi)
+        return
+    o = calcola_orari()
+    scrivi_ora_ds3231(domani)
+    scrivi_allarme_ds3231(o["rele"], domani)
+    ev = "%s UTC cambio ora: DS3231 riscritto con shift %d (domani avvio ore %d locali)" % (
+        datetime.datetime.now(datetime.timezone.utc).strftime("%F %T"), domani, ORA_AVVIO_LOCALE)
+    with open("/boot/ogn-eventi.log", "a") as f:
+        f.write(ev + "\n")
+    print(ev)
+
+
 def aggiorna_crontab(o):
     r = subprocess.run(["crontab", "-u", "root", "-l"], capture_output=True, text=True)
-    linee = [l for l in r.stdout.split("\n") if l.strip() and "shutdown" not in l]
+    linee = [l for l in r.stdout.split("\n") if l.strip() and "shutdown" not in l and "--notte" not in l]
+    linee.append(riga_notte(o["shutdown"] - MARGINE_NOTTE))
     linee.append(riga_shutdown(o["shutdown"]))
     linee.append(riga_shutdown(o["failsafe"]))
     # cintura di sicurezza: tetto fisso 17:00 UTC (19:00 CEST) sempre presente
@@ -107,6 +161,12 @@ def aggiorna_crontab(o):
 
 
 if __name__ == "__main__":
+    if "--shift" in sys.argv:
+        print(shift_oggi())
+        sys.exit(0)
+    if "--notte" in sys.argv:
+        prepara_notte()
+        sys.exit(0)
     if "--fallback" in sys.argv:
         o = {"tramonto": None,
              "shutdown": TETTO_SHUTDOWN[0] * 60 + TETTO_SHUTDOWN[1],
@@ -116,7 +176,8 @@ if __name__ == "__main__":
     else:
         o = calcola_orari()
     aggiorna_crontab(o)
-    scrivi_allarme_ds3231(o["rele"])
+    scrivi_allarme_ds3231(o["rele"], shift_oggi())
+    print("Shift DS3231:     %d h rispetto a UTC" % shift_oggi())
     print("Tramonto UTC:      %s" % (hhmm(o["tramonto"]) if o["tramonto"] else "n/d"))
     print("Shutdown cron UTC: %s" % hhmm(o["shutdown"]))
     print("Failsafe UTC:      %s" % hhmm(o["failsafe"]))
