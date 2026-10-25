@@ -1088,7 +1088,7 @@ Normale se manca la batteria tampone (resistenza di carica rimossa): la v1.7 lo 
 
 ### ATtiny non comunica con il DS3231
 
-- SDA su P0, SCL su P3 (non P2), pull-up 470 Ω su P3 verso 5 V
+- SDA su P0, SCL su P3 (non P2) (nessun pull-up aggiuntivo: bastano quelli del Digispark e del modulo DS3231)
 - Alimentazione DS3231 e BSS138 su 5 V lato HV
 - `i2cdetect -y 1` deve mostrare `57` e `68`
 
