@@ -8,30 +8,30 @@
 <rect x="250" y="90" width="190" height="70" rx="8" fill="#e8f5e9" stroke="#555" stroke-width="2"/>
 <text x="345" y="112" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">CN3791 3S MPPT</text>
 <text x="345" y="132" font-size="13" fill="#444" text-anchor="middle" font-weight="normal">taglio 12,6 V</text>
-<polyline points="190,125 250,125" fill="none" stroke="#c62828" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="220" y="115" font-size="12" fill="#c62828" text-anchor="middle" font-weight="normal">18 V</text>
-<text x="40" y="182" font-size="12" fill="#c62828" text-anchor="start" font-weight="normal" font-style="italic">ATTENZIONE alla polarità del pannello!</text>
+<polyline points="190,125 250,125" fill="none" stroke="#7f1010" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="220" y="115" font-size="12" fill="#7f1010" text-anchor="middle" font-weight="normal">18 V</text>
+<text x="40" y="182" font-size="12" fill="#7f1010" text-anchor="start" font-weight="normal" font-style="italic">ATTENZIONE alla polarità del pannello!</text>
 <rect x="500" y="60" width="240" height="110" rx="8" fill="#fff3e0" stroke="#555" stroke-width="2"/>
 <text x="620" y="82" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">Pacco 3S2P 18650</text>
 <text x="620" y="102" font-size="13" fill="#444" text-anchor="middle" font-weight="normal">6,4 Ah, 12,6 V max</text>
 <text x="620" y="120" font-size="13" fill="#444" text-anchor="middle" font-weight="normal">BMS 3S a bordo (P+ / P−)</text>
 <text x="620" y="138" font-size="13" fill="#444" text-anchor="middle" font-weight="normal">il caricatore va sul BMS</text>
-<polyline points="440,125 500,125" fill="none" stroke="#c62828" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="470" y="115" font-size="12" fill="#c62828" text-anchor="middle" font-weight="normal">12,6 V</text>
+<polyline points="440,125 500,125" fill="none" stroke="#7f1010" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="470" y="115" font-size="12" fill="#7f1010" text-anchor="middle" font-weight="normal">12,6 V</text>
 <polyline points="545,170 545,205" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <g stroke="#222" stroke-width="2.5"><line x1="545" y1="205" x2="545" y2="213"/><line x1="533" y1="213" x2="557" y2="213"/><line x1="537" y1="218" x2="553" y2="218"/><line x1="541" y1="223" x2="549" y2="223"/></g>
 <text x="560" y="196" font-size="12" fill="#222" text-anchor="start" font-weight="normal">P−</text>
-<polyline points="645,170 645,240" fill="none" stroke="#c62828" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="655" y="196" font-size="13" fill="#c62828" text-anchor="start" font-weight="bold">P+</text>
-<circle cx="645" cy="240" r="5" fill="#c62828"/>
+<polyline points="645,170 645,240" fill="none" stroke="#7f1010" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="655" y="196" font-size="13" fill="#7f1010" text-anchor="start" font-weight="bold">P+</text>
+<circle cx="645" cy="240" r="5" fill="#7f1010"/>
 <rect x="720" y="200" width="160" height="90" rx="8" fill="#e3f2fd" stroke="#555" stroke-width="2"/>
 <text x="800" y="222" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">INA219</text>
 <text x="800" y="242" font-size="13" fill="#444" text-anchor="middle" font-weight="normal">0x40</text>
 <text x="722" y="232" font-size="11" fill="#333" text-anchor="start" font-weight="normal">VIN+</text>
 <text x="878" y="232" font-size="11" fill="#333" text-anchor="end" font-weight="normal">VIN−</text>
-<polyline points="645,240 720,240" fill="none" stroke="#c62828" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-<polyline points="760,200 760,130 1330,130" fill="none" stroke="#00796b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-<text x="1000" y="127" font-size="11" fill="#00796b" text-anchor="start" font-weight="normal">VCC 3,3 V</text>
+<polyline points="645,240 720,240" fill="none" stroke="#7f1010" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="760,200 760,130 1330,130" fill="none" stroke="#ff1a1a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="1000" y="127" font-size="11" fill="#ff1a1a" text-anchor="start" font-weight="normal">VCC 3,3 V</text>
 <polyline points="790,200 790,146 1310,146" fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="1000" y="143" font-size="11" fill="#1565c0" text-anchor="start" font-weight="normal">SDA</text>
 <polyline points="820,200 820,162 1290,162" fill="none" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
@@ -39,9 +39,9 @@
 <polyline points="840,290 840,305" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <g stroke="#222" stroke-width="2.5"><line x1="840" y1="305" x2="840" y2="313"/><line x1="828" y1="313" x2="852" y2="313"/><line x1="832" y1="318" x2="848" y2="318"/><line x1="836" y1="323" x2="844" y2="323"/></g>
 <text x="856" y="304" font-size="11" fill="#222" text-anchor="start" font-weight="normal">GND</text>
-<polyline points="880,240 925,240" fill="none" stroke="#c62828" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="925" cy="240" r="4" fill="#fff" stroke="#c62828" stroke-width="2.5"/><circle cx="985" cy="240" r="4" fill="#fff" stroke="#c62828" stroke-width="2.5"/><line x1="929" y1="238" x2="978" y2="220" stroke="#c62828" stroke-width="3"/>
-<polyline points="989,240 1060,240" fill="none" stroke="#c62828" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="880,240 925,240" fill="none" stroke="#7f1010" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="925" cy="240" r="4" fill="#fff" stroke="#7f1010" stroke-width="2.5"/><circle cx="985" cy="240" r="4" fill="#fff" stroke="#7f1010" stroke-width="2.5"/><line x1="929" y1="238" x2="978" y2="220" stroke="#7f1010" stroke-width="3"/>
+<polyline points="989,240 1060,240" fill="none" stroke="#7f1010" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="955" y="262" font-size="12" fill="#222" text-anchor="middle" font-weight="normal">Interruttore generale</text>
 <rect x="1060" y="190" width="170" height="100" rx="8" fill="#ede7f6" stroke="#555" stroke-width="2"/>
 <text x="1145" y="212" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">TPS54560</text>
@@ -54,11 +54,11 @@
 <polyline points="1190,290 1190,330" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="1198" y="312" font-size="12" fill="#e65100" text-anchor="start" font-weight="bold">OUT 5,1 V</text>
 <polyline points="1190,330 760,330" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-<rect x="637" y="290" width="16" height="50" fill="#fff" stroke="#c62828" stroke-width="2.5"/>
+<rect x="637" y="290" width="16" height="50" fill="#fff" stroke="#7f1010" stroke-width="2.5"/>
 <text x="661" y="320" font-size="14" fill="#222" text-anchor="start" font-weight="normal">R1 56 kΩ</text>
-<polyline points="645,240 645,290" fill="none" stroke="#c62828" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
-<polyline points="645,340 645,380" fill="none" stroke="#c62828" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="645" cy="380" r="5" fill="#c62828"/>
+<polyline points="645,240 645,290" fill="none" stroke="#7f1010" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="645,340 645,380" fill="none" stroke="#7f1010" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="645" cy="380" r="5" fill="#7f1010"/>
 <rect x="637" y="410" width="16" height="60" fill="#fff" stroke="#222" stroke-width="2.5"/>
 <text x="629" y="445" font-size="14" fill="#222" text-anchor="end" font-weight="normal">R2 10 kΩ</text>
 <polyline points="645,380 645,410" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
@@ -69,7 +69,7 @@
 <text x="522" y="409" font-size="14" fill="#222" text-anchor="end" font-weight="normal">C2 100 nF</text>
 <polyline points="540,412 540,440" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <g stroke="#222" stroke-width="2.5"><line x1="540" y1="440" x2="540" y2="448"/><line x1="528" y1="448" x2="552" y2="448"/><line x1="532" y1="453" x2="548" y2="453"/><line x1="536" y1="458" x2="544" y2="458"/></g>
-<polyline points="645,380 690,380 690,620 720,620" fill="none" stroke="#c62828" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="645,380 690,380 690,620 720,620" fill="none" stroke="#7f1010" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <text x="530" y="320" font-size="13" fill="#444" text-anchor="end" font-weight="bold">Partitore batteria</text>
 <text x="530" y="336" font-size="12" fill="#444" text-anchor="end" font-weight="normal">(prima dell'interruttore)</text>
 <circle cx="760" cy="330" r="5" fill="#e65100"/>
@@ -100,7 +100,7 @@
 <text x="726" y="624" font-size="12" fill="#333" text-anchor="start" font-weight="normal">P4 (A2)</text>
 <text x="864" y="764" font-size="12" fill="#333" text-anchor="end" font-weight="normal">P1 (relè)</text>
 <text x="770" y="752" font-size="12" fill="#333" text-anchor="middle" font-weight="normal">GND</text>
-<text x="820" y="730" font-size="12" fill="#c62828" text-anchor="middle" font-weight="normal">P2: NON usare</text>
+<text x="820" y="730" font-size="12" fill="#7f1010" text-anchor="middle" font-weight="normal">P2: NON usare</text>
 <polyline points="770,760 770,772" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <g stroke="#222" stroke-width="2.5"><line x1="770" y1="772" x2="770" y2="780"/><line x1="758" y1="780" x2="782" y2="780"/><line x1="762" y1="785" x2="778" y2="785"/><line x1="766" y1="790" x2="774" y2="790"/></g>
 <polyline points="920,600 1040,600 1040,570 1100,570" fill="none" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
@@ -145,8 +145,8 @@
 <circle cx="1290" cy="570" r="5" fill="#2e7d32"/>
 <polyline points="1260,610 1310,610 1310,146" fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="1310" cy="610" r="5" fill="#1565c0"/>
-<polyline points="1260,650 1330,650 1330,130" fill="none" stroke="#00796b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
-<circle cx="1330" cy="650" r="5" fill="#00796b"/>
+<polyline points="1260,650 1330,650 1330,130" fill="none" stroke="#ff1a1a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="1330" cy="650" r="5" fill="#ff1a1a"/>
 <polyline points="870,760 870,880 1200,880" fill="none" stroke="#6a1b9a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="1200" y="800" width="180" height="160" rx="8" fill="#f3e5f5" stroke="#555" stroke-width="2"/>
 <text x="1290" y="822" font-size="16" fill="#222" text-anchor="middle" font-weight="bold">Modulo relè</text>
@@ -175,7 +175,7 @@
 <text x="1446" y="464" font-size="12" fill="#333" text-anchor="start" font-weight="normal">pin 5 – GPIO3 SCL</text>
 <text x="1446" y="504" font-size="12" fill="#333" text-anchor="start" font-weight="normal">pin 6 – GND</text>
 <text x="1446" y="914" font-size="12" fill="#333" text-anchor="start" font-weight="normal">pin 2 – 5 V</text>
-<polyline points="1330,380 1440,380" fill="none" stroke="#00796b" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="1330,380 1440,380" fill="none" stroke="#ff1a1a" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="1310,420 1440,420" fill="none" stroke="#1565c0" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="1290,460 1440,460" fill="none" stroke="#2e7d32" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="1323" y="416" width="14" height="8" fill="#fff"/>
@@ -184,7 +184,7 @@
 <path d="M 1303 460 A 7 7 0 0 1 1317 460" fill="none" stroke="#2e7d32" stroke-width="3"/>
 <rect x="1323" y="456" width="14" height="8" fill="#fff"/>
 <path d="M 1323 460 A 7 7 0 0 1 1337 460" fill="none" stroke="#2e7d32" stroke-width="3"/>
-<circle cx="1330" cy="380" r="5" fill="#00796b"/>
+<circle cx="1330" cy="380" r="5" fill="#ff1a1a"/>
 <circle cx="1310" cy="420" r="5" fill="#1565c0"/>
 <circle cx="1290" cy="460" r="5" fill="#2e7d32"/>
 <polyline points="1430,500 1440,500" fill="none" stroke="#222" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
@@ -201,11 +201,11 @@
 <text x="40" y="1074" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• L'interruttore apre solo il carico (TPS54560): caricatore, partitore P4 e INA219 stanno sul lato batteria, prima dell'interruttore.</text>
 <text x="40" y="1090" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• C1 (elettrolitico, + sul nodo) e C1b (ceramico 104) stanno in parallelo sull'alimentazione dell'ATtiny, subito dopo D1, vicino al Digispark.</text>
 <text x="40" y="1106" font-size="13" fill="#333" text-anchor="start" font-weight="normal">• Pacco 3S: R1 = 56 kΩ, R2 = 10 kΩ, C2 = 100 nF. Con un pacco diverso (es. 2S LiFePO4) partitore e soglie dello sketch vanno ricalcolati.</text>
-<line x1="1010" y1="1030" x2="1044" y2="1030" stroke="#c62828" stroke-width="4"/>
+<line x1="1010" y1="1030" x2="1044" y2="1030" stroke="#7f1010" stroke-width="4"/>
 <text x="1052" y="1035" font-size="13" fill="#222" text-anchor="start" font-weight="normal">+ batteria</text>
 <line x1="1210" y1="1030" x2="1244" y2="1030" stroke="#e65100" stroke-width="4"/>
 <text x="1252" y="1035" font-size="13" fill="#222" text-anchor="start" font-weight="normal">+5,1 V</text>
-<line x1="1410" y1="1030" x2="1444" y2="1030" stroke="#00796b" stroke-width="4"/>
+<line x1="1410" y1="1030" x2="1444" y2="1030" stroke="#ff1a1a" stroke-width="4"/>
 <text x="1452" y="1035" font-size="13" fill="#222" text-anchor="start" font-weight="normal">+3,3 V</text>
 <line x1="1010" y1="1052" x2="1044" y2="1052" stroke="#1565c0" stroke-width="4"/>
 <text x="1052" y="1057" font-size="13" fill="#222" text-anchor="start" font-weight="normal">SDA</text>
