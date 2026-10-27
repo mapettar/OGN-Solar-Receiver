@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 700" width="1500" height="700" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1500" height="700" fill="#fff"/>
+<text x="40" y="34" font-size="22" fill="#222" text-anchor="start" font-weight="bold">Interruttore MOSFET per alimentare la Raspberry Pi (al posto del relè)</text>
+<text x="40" y="54" font-size="14" fill="#555" text-anchor="start" font-weight="normal">Interruttore sul lato positivo (high-side): P1 ALTO = Pi accesa, come con il relè. La massa non si interrompe.</text>
+<polyline points="60,130 520,130" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<text x="60" y="118" font-size="13" fill="#e65100" text-anchor="start" font-weight="bold">+5,1 V dal buck (come oggi per il relè)</text>
+<circle cx="200" cy="130" r="5" fill="#e65100"/>
+<circle cx="250" cy="130" r="5" fill="#e65100"/>
+<polyline points="200,130 200,160" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="192" y="160" width="16" height="50" fill="#fff" stroke="#222" stroke-width="2.5"/>
+<text x="184" y="190" font-size="14" fill="#222" text-anchor="end" font-weight="normal">R1 10 kΩ</text>
+<polyline points="200,210 200,225" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="250,130 250,196" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="3"><line x1="238" y1="196" x2="262" y2="196"/><line x1="238" y1="204" x2="262" y2="204"/></g>
+<text x="268" y="205" font-size="14" fill="#222" text-anchor="start" font-weight="normal">C1 10 nF</text>
+<polyline points="250,204 250,225" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="200,225 400,225" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="200" cy="225" r="5" fill="#222"/>
+<circle cx="250" cy="225" r="5" fill="#222"/>
+<rect x="400" y="170" width="130" height="115" rx="8" fill="#ede7f6" stroke="#555" stroke-width="2"/>
+<text x="465" y="194" font-size="15" fill="#222" text-anchor="middle" font-weight="bold">AO3401</text>
+<text x="465" y="214" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">P-MOSFET</text>
+<text x="465" y="231" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">logic level</text>
+<text x="406" y="229" font-size="12" fill="#333" text-anchor="start" font-weight="normal">G</text>
+<text x="476" y="164" font-size="12" fill="#333" text-anchor="middle" font-weight="normal">S</text>
+<text x="470" y="280" font-size="12" fill="#333" text-anchor="middle" font-weight="normal">D</text>
+<polyline points="460,130 460,170" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="460" cy="130" r="5" fill="#e65100"/>
+<polyline points="200,225 200,300" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="192" y="300" width="16" height="50" fill="#fff" stroke="#222" stroke-width="2.5"/>
+<text x="216" y="330" font-size="14" fill="#222" text-anchor="start" font-weight="normal">R2 220 Ω</text>
+<polyline points="200,350 200,400" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="150" y="400" width="110" height="85" rx="8" fill="#e8eaf6" stroke="#555" stroke-width="2"/>
+<text x="205" y="424" font-size="15" fill="#222" text-anchor="middle" font-weight="bold">BC547</text>
+<text x="205" y="444" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">NPN</text>
+<text x="212" y="394" font-size="12" fill="#333" text-anchor="middle" font-weight="normal">C</text>
+<text x="156" y="459" font-size="12" fill="#333" text-anchor="start" font-weight="normal">B</text>
+<text x="205" y="480" font-size="12" fill="#333" text-anchor="middle" font-weight="normal">E</text>
+<polyline points="200,485 200,505" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="2.5"><line x1="200" y1="505" x2="200" y2="513"/><line x1="188" y1="513" x2="212" y2="513"/><line x1="192" y1="518" x2="208" y2="518"/><line x1="196" y1="523" x2="204" y2="523"/></g>
+<text x="40" y="410" font-size="14" fill="#6a1b9a" text-anchor="start" font-weight="bold">P1 (Digispark)</text>
+<polyline points="40,455 70,455" fill="none" stroke="#6a1b9a" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="70" y="447" width="50" height="16" fill="#fff" stroke="#222" stroke-width="2.5"/>
+<text x="95" y="441" font-size="14" fill="#222" text-anchor="middle" font-weight="normal">R3 4,7 kΩ</text>
+<polyline points="120,455 150,455" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="135" cy="455" r="5" fill="#222"/>
+<polyline points="135,455 135,480" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="127" y="480" width="16" height="50" fill="#fff" stroke="#222" stroke-width="2.5"/>
+<text x="119" y="510" font-size="14" fill="#222" text-anchor="end" font-weight="normal">R4 100 kΩ</text>
+<polyline points="135,530 135,550" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="2.5"><line x1="135" y1="550" x2="135" y2="558"/><line x1="123" y1="558" x2="147" y2="558"/><line x1="127" y1="563" x2="143" y2="563"/><line x1="131" y1="568" x2="139" y2="568"/></g>
+<polyline points="460,285 460,330" fill="none" stroke="#222" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<rect x="452" y="330" width="16" height="50" fill="#fff" stroke="#222" stroke-width="2.5"/>
+<text x="476" y="360" font-size="14" fill="#222" text-anchor="start" font-weight="normal">F1 PTC 1,85 A</text>
+<polyline points="460,380 460,420" fill="none" stroke="#222" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<polyline points="460,420 760,420" fill="none" stroke="#e65100" stroke-width="3.5" stroke-linejoin="round" stroke-linecap="round"/>
+<circle cx="460" cy="420" r="5" fill="#e65100"/>
+<circle cx="570" cy="420" r="5" fill="#e65100"/>
+<polyline points="570,420 570,450" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<line x1="558" y1="450" x2="582" y2="450" stroke="#222" stroke-width="3"/><polygon points="558,474 582,474 570,452" fill="#fff" stroke="#222" stroke-width="2.5"/>
+<polyline points="570,474 570,500" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="2.5"><line x1="570" y1="500" x2="570" y2="508"/><line x1="558" y1="508" x2="582" y2="508"/><line x1="562" y1="513" x2="578" y2="513"/><line x1="566" y1="518" x2="574" y2="518"/></g>
+<text x="590" y="466" font-size="14" fill="#222" text-anchor="start" font-weight="normal">D2 TVS 5 V (SMBJ5.0A)</text>
+<rect x="760" y="375" width="190" height="120" rx="8" fill="#fce4ec" stroke="#555" stroke-width="2"/>
+<text x="855" y="399" font-size="15" fill="#222" text-anchor="middle" font-weight="bold">Cavetto USB corto</text>
+<text x="855" y="419" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">Pi 3A+</text>
+<text x="855" y="436" font-size="12" fill="#444" text-anchor="middle" font-weight="normal">(conduttori da 24 AWG)</text>
+<text x="766" y="424" font-size="13" fill="#e65100" text-anchor="start" font-weight="normal">+5 V</text>
+<text x="766" y="474" font-size="13" fill="#333" text-anchor="start" font-weight="normal">GND</text>
+<polyline points="760,470 730,470 730,520" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+<g stroke="#222" stroke-width="2.5"><line x1="730" y1="520" x2="730" y2="528"/><line x1="718" y1="528" x2="742" y2="528"/><line x1="722" y1="533" x2="738" y2="533"/><line x1="726" y1="538" x2="734" y2="538"/></g>
+<text x="1000" y="110" font-size="16" fill="#222" text-anchor="start" font-weight="bold">Come funziona</text>
+<text x="1000" y="134" font-size="13" fill="#333" text-anchor="start" font-weight="normal">P1 basso (o flottante): il BC547 è spento, R1 tiene il gate al source</text>
+<text x="1000" y="154" font-size="13" fill="#333" text-anchor="start" font-weight="normal">→ AO3401 spento → la Pi non ha tensione (stato sicuro all'avvio).</text>
+<text x="1000" y="174" font-size="13" fill="#333" text-anchor="start" font-weight="normal">P1 alto: il BC547 conduce, il gate scende verso massa (Vgs ≈ −4,7 V)</text>
+<text x="1000" y="194" font-size="13" fill="#333" text-anchor="start" font-weight="normal">→ AO3401 acceso → +5,1 V alla Pi attraverso F1.</text>
+<text x="1000" y="214" font-size="13" fill="#333" text-anchor="start" font-weight="normal">C1 (10 nF) rallenta l'accensione: avvio morbido dello spunto.</text>
+<text x="1000" y="262" font-size="16" fill="#222" text-anchor="start" font-weight="bold">Piedinatura (controlla sempre la scheda tecnica)</text>
+<text x="1000" y="286" font-size="13" fill="#333" text-anchor="start" font-weight="normal">AO3401 (SOT-23), vista dall'alto: pin 1 = Gate, pin 2 = Source, pin 3 = Drain.</text>
+<text x="1000" y="306" font-size="13" fill="#333" text-anchor="start" font-weight="normal">BC547 (TO-92), lato piatto verso di te, da sinistra: C – B – E.</text>
+<text x="1000" y="345" font-size="16" fill="#222" text-anchor="start" font-weight="bold">Per la prova</text>
+<text x="1000" y="369" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Carico di prova: resistenza 5,1 Ω / 5 W (circa 1 A) al posto della Pi.</text>
+<text x="1000" y="389" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Misura: tensione sul carico (deve restare sopra 4,9 V),</text>
+<text x="1000" y="409" font-size="13" fill="#333" text-anchor="start" font-weight="normal">temperatura dell'AO3401 (tiepido) e che con P1 basso sia 0 V.</text>
+<text x="40" y="640" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Con P1 flottante (ATtiny in reset o bootloader) R4 tiene il BC547 spento: la Pi non si accende da sola.</text>
+<text x="40" y="660" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Il diodo TVS D2 e il fusibile F1 stanno dopo il MOSFET, sul lato verso la Pi.</text>
+</svg>
