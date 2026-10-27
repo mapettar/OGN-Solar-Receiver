@@ -12,7 +12,7 @@
 <polyline points="200,210 200,225" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="250,130 250,196" fill="none" stroke="#e65100" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <g stroke="#222" stroke-width="3"><line x1="238" y1="196" x2="262" y2="196"/><line x1="238" y1="204" x2="262" y2="204"/></g>
-<text x="268" y="205" font-size="14" fill="#222" text-anchor="start" font-weight="normal">C1 10 nF</text>
+<text x="268" y="205" font-size="14" fill="#222" text-anchor="start" font-weight="normal">C1 10 nF (103)</text>
 <polyline points="250,204 250,225" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <polyline points="200,225 400,225" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <circle cx="200" cy="225" r="5" fill="#222"/>
@@ -28,7 +28,7 @@
 <circle cx="460" cy="130" r="5" fill="#e65100"/>
 <polyline points="200,225 200,300" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="192" y="300" width="16" height="50" fill="#fff" stroke="#222" stroke-width="2.5"/>
-<text x="216" y="330" font-size="14" fill="#222" text-anchor="start" font-weight="normal">R2 220 Ω</text>
+<text x="216" y="330" font-size="14" fill="#222" text-anchor="start" font-weight="normal">R2 220 Ω (facoltativa)</text>
 <polyline points="200,350 200,400" fill="none" stroke="#222" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
 <rect x="150" y="400" width="110" height="85" rx="8" fill="#e8eaf6" stroke="#555" stroke-width="2"/>
 <text x="205" y="424" font-size="15" fill="#222" text-anchor="middle" font-weight="bold">BC547</text>
@@ -74,7 +74,7 @@
 <text x="1000" y="154" font-size="13" fill="#333" text-anchor="start" font-weight="normal">→ AO3401 spento → la Pi non ha tensione (stato sicuro all'avvio).</text>
 <text x="1000" y="174" font-size="13" fill="#333" text-anchor="start" font-weight="normal">P1 alto: il BC547 conduce, il gate scende verso massa (Vgs ≈ −4,7 V)</text>
 <text x="1000" y="194" font-size="13" fill="#333" text-anchor="start" font-weight="normal">→ AO3401 acceso → +5,1 V alla Pi attraverso F1.</text>
-<text x="1000" y="214" font-size="13" fill="#333" text-anchor="start" font-weight="normal">C1 (10 nF) rallenta l'accensione: avvio morbido dello spunto.</text>
+<text x="1000" y="214" font-size="13" fill="#333" text-anchor="start" font-weight="normal">C1 (103 = 10 nF) rallenta solo lo spegnimento (circa 0,1 ms).</text>
 <text x="1000" y="262" font-size="16" fill="#222" text-anchor="start" font-weight="bold">Piedinatura (controlla sempre la scheda tecnica)</text>
 <text x="1000" y="286" font-size="13" fill="#333" text-anchor="start" font-weight="normal">AO3401 (SOT-23), vista dall'alto: pin 1 = Gate, pin 2 = Source, pin 3 = Drain.</text>
 <text x="1000" y="306" font-size="13" fill="#333" text-anchor="start" font-weight="normal">BC547 (TO-92), lato piatto verso di te, da sinistra: C – B – E.</text>
@@ -82,6 +82,12 @@
 <text x="1000" y="369" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Carico di prova: resistenza 5,1 Ω / 5 W (circa 1 A) al posto della Pi.</text>
 <text x="1000" y="389" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Misura: tensione sul carico (deve restare sopra 4,9 V),</text>
 <text x="1000" y="409" font-size="13" fill="#333" text-anchor="start" font-weight="normal">temperatura dell'AO3401 (tiepido) e che con P1 basso sia 0 V.</text>
+<text x="1000" y="440" font-size="16" fill="#222" text-anchor="start" font-weight="bold">Valori per la prova al banco</text>
+<text x="1000" y="464" font-size="13" fill="#333" text-anchor="start" font-weight="normal">R2 220 Ω: si può omettere (collettore collegato direttamente al gate).</text>
+<text x="1000" y="484" font-size="13" fill="#333" text-anchor="start" font-weight="normal">C1: va bene anche un 104 (100 nF); il 103 è il valore dello schema.</text>
+<text x="1000" y="504" font-size="13" fill="#333" text-anchor="start" font-weight="normal">R4 100 kΩ (base-massa): da montare, tiene spento il BC547 con P1 flottante.</text>
+<text x="1000" y="540" font-size="16" fill="#222" text-anchor="start" font-weight="bold">Avvio morbido della Pi (facoltativo, versione definitiva)</text>
+<text x="1000" y="564" font-size="13" fill="#333" text-anchor="start" font-weight="normal">R2 = 1 kΩ e C1 = 470 nF – 1 µF: salita della tensione in circa 1 ms.</text>
 <text x="40" y="640" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Con P1 flottante (ATtiny in reset o bootloader) R4 tiene il BC547 spento: la Pi non si accende da sola.</text>
 <text x="40" y="660" font-size="13" fill="#333" text-anchor="start" font-weight="normal">Il diodo TVS D2 e il fusibile F1 stanno dopo il MOSFET, sul lato verso la Pi.</text>
 </svg>
