@@ -24,9 +24,9 @@ echo "STATO STAZIONE $(hostname) - $(date '+%F %T') (UTC $(date -u +%H:%M:%S))"
 # --- 1. Avvio --------------------------------------------------------------
 titolo "Avvio"
 AVVIO=$(uptime -s)
-AVVIO_UTC=$(date -u -d "$AVVIO" +%H:%M)
 AVVIO_LOC=${AVVIO:11:5}
 SEC=$(cut -d. -f1 /proc/uptime)
+AVVIO_UTC=$(date -u -d "@$(( $(date +%s) - SEC ))" +%H:%M)
 info "acceso dalle ${AVVIO:11:8} locali (${AVVIO_UTC} UTC), in funzione da $((SEC/3600)) h $(((SEC%3600)/60)) min"
 # atteso: 10:00 locali (script nuovi) oppure 08:00 UTC (script vecchi); tolleranza 10 minuti
 if [[ "$AVVIO_LOC" > "09:59" && "$AVVIO_LOC" < "10:11" ]]; then
@@ -122,7 +122,12 @@ done
 if [ -n "$MB" ]; then
   OUT=$(timeout 10 python3 "$MB" --pacco "${OGN_PACCO:-3s-liion}" 2>&1 | head -5)
   echo "$OUT" | sed 's/^/       /'
-  echo "$OUT" | grep -qiE "critic|bassa|errore" && warn "controllare la batteria"
+  VB=$(echo "$OUT" | awk '/Tensione/{print $2}')
+  if [ -n "$VB" ] && awk -v v="$VB" 'BEGIN{exit !(v < 3.0)}'; then
+    info "tensione sotto 3 V: INA219 senza batteria collegata (stazione di prova), lettura ignorata"
+  elif echo "$OUT" | grep -qiE "critic|bassa|errore"; then
+    warn "controllare la batteria"
+  fi
 else
   info "monitor_batteria.py non trovato"
 fi
