@@ -120,10 +120,17 @@ for f in /usr/local/sbin/monitor_batteria.py /boot/monitor_batteria.py /boot/fir
   [ -f "$f" ] && { MB=$f; break; }
 done
 if [ -n "$MB" ]; then
-  OUT=$(timeout 10 python3 "$MB" --pacco "${OGN_PACCO:-3s-liion}" 2>&1 | head -5)
-  echo "$OUT" | sed 's/^/       /'
+  OUT=$(timeout 10 python3 "$MB" --pacco "${OGN_PACCO:-3s-liion}" 2>&1)
+  if echo "$OUT" | grep -q Traceback; then
+    info "INA219 non risponde (non collegato?): $(echo "$OUT" | tail -1)"
+    OUT=""
+  else
+    OUT=$(echo "$OUT" | head -5)
+    echo "$OUT" | sed 's/^/       /'
+  fi
   VB=$(echo "$OUT" | awk '/Tensione/{print $2}')
-  if [ -n "$VB" ] && awk -v v="$VB" 'BEGIN{exit !(v < 3.0)}'; then
+  if [ -z "$OUT" ]; then :
+  elif [ -n "$VB" ] && awk -v v="$VB" 'BEGIN{exit !(v < 3.0)}'; then
     info "tensione sotto 3 V: INA219 senza batteria collegata (stazione di prova), lettura ignorata"
   elif echo "$OUT" | grep -qiE "critic|bassa|errore"; then
     warn "controllare la batteria"
