@@ -1,5 +1,5 @@
 #!/bin/bash
-# ogn-boot-setup.sh v1.2 (DS3231 = ora locale - 2 h: avvio sempre alle 10 locali; v1.1 controllo ntpq) - adattamento di setup_cron.sh v1.7 a Raspberry Pi OS Bookworm (Pi 3A+)
+# ogn-boot-setup.sh v1.3 (log di ora e stato DS3231 PRIMA della scrittura, avviso OSF; v1.2 DS3231 = ora locale - 2 h: avvio sempre alle 10 locali; v1.1 controllo ntpq) - adattamento di setup_cron.sh v1.7 a Raspberry Pi OS Bookworm (Pi 3A+)
 # Installazione: /usr/local/sbin/ogn-boot-setup.sh (root:root, 755), lanciato da ogn-boot-setup.service.
 # - NON installa pacchetti e NON tocca Tailscale (gia installato a mano).
 # - NON usa l'overlay RTC del kernel: il DS3231 si scrive con i2cset all'indirizzo 0x68.
@@ -42,6 +42,19 @@ echo "NTP_OK=$NTP_OK SCHEDULE=$SCHEDULE"
 
 to_bcd() { printf '%02x' $(( $1 / 10 * 16 + $1 % 10 )); }
 
+# Stato del DS3231 PRIMA di toccarlo: l'OSF acceso vuol dire ora persa (la scrittura sotto lo azzera).
+PRE_ST=$(i2cget -y 1 0x68 0x0f 2>/dev/null)
+PRE_H=$(i2cget -y 1 0x68 0x02 2>/dev/null); PRE_M=$(i2cget -y 1 0x68 0x01 2>/dev/null); PRE_S=$(i2cget -y 1 0x68 0x00 2>/dev/null)
+if [ -n "$PRE_ST" ] && [ -n "$PRE_H" ] && [ -n "$PRE_M" ] && [ -n "$PRE_S" ]; then
+  echo "DS3231 PRIMA della scrittura: ${PRE_H#0x}:${PRE_M#0x}:${PRE_S#0x} (BCD), stato $PRE_ST"
+  if [ $(( PRE_ST & 0x80 )) -ne 0 ]; then
+    echo "ATTENZIONE: OSF acceso, il DS3231 aveva perso l'ora"
+    echo "$(date -u '+%F %T') UTC DS3231 ora persa (OSF acceso, stato $PRE_ST)" >> "$EVENTI"
+  fi
+else
+  echo "DS3231 PRIMA della scrittura: non risponde su 0x68"
+fi
+
 if [ "$NTP_OK" -eq 1 ]; then
   # Scrive sul DS3231 UTC + shift (0 ora legale, -1 ora solare) e azzera il flag OSF
   # (l'ATtiny considera l'orologio perso finche OSF=1). Cosi lo sketch (soglia 08:00) parte sempre alle 10:00 locali.
@@ -52,7 +65,7 @@ if [ "$NTP_OK" -eq 1 ]; then
      i2cset -y 1 0x68 0x01 0x$(to_bcd $M) && \
      i2cset -y 1 0x68 0x00 0x$(to_bcd $S) && \
      i2cset -y 1 0x68 0x0f 0x00; then
-    echo "DS3231 scritto: $T (UTC${SHIFT:+ $SHIFT h}; stato letto: $(i2cget -y 1 0x68 0x0f))"
+    echo "DS3231 scritto: $T (UTC${SHIFT:+ $SHIFT h}; stato dopo azzeramento: $(i2cget -y 1 0x68 0x0f))"
   else
     echo "ERRORE: scrittura DS3231 fallita (controllare I2C e indirizzo 0x68)"
   fi
