@@ -15,6 +15,25 @@ Se il Mac richiede la passphrase a ogni accesso: `ssh-add --apple-use-keychain ~
 
 ---
 
+## 0. INSTALLAZIONE DA ZERO IN UN COMANDO (nuova stazione)
+**Prima, l'immagine adatta alla Pi 3A+:**
+1. Con *Raspberry Pi Imager* scrivi sulla SD **Raspberry Pi OS Lite, Bookworm, 32 bit** (rtlsdr-ogn 0.3.3 richiede 32 bit). Nelle impostazioni dell'Imager: nome della stazione (hostname), utente `pi`, **SSH con chiave** (non password), Wi-Fi, fuso orario Europe/Rome.
+2. Avvia la Pi, collegati via SSH e installa **rtlsdr-ogn 0.3.3** con il nome della stazione (`ReceiverName`) e i servizi `rtlsdr-ogn` e `ogn-decode`. Questo passaggio non fa parte dell'installatore.
+
+**Poi, un comando** (scarica, leggi se vuoi, lancia):
+```bash
+curl -fsSLo install.sh "https://raw.githubusercontent.com/mapettar/OGN-Solar-Receiver/rpi-bookworm-3a-plus/src/rpi-bookworm/install.sh"
+sudo bash install.sh --pacco 3s-liion --schedule on
+sudo reboot
+```
+- `--pacco 3s-liion` (default) o `2s-lifepo4`: profilo batteria per il comando `stato` e per `monitor_batteria`.
+- `--schedule on`: spegnimento serale al tramonto. Usalo solo con ATtiny v1.7.3 e DS3231 collegati; **senza** (`off`, default) la Pi non si spegne da sola.
+- Installa gli script in `/usr/local/sbin/`, il servizio `ogn-boot-setup`, il comando `stato`, i log del DS3231, del BME280 e della batteria (cron in `/etc/cron.d/ogn-station`) e la rotazione dei log. Attiva I2C. Si può rilanciare: i file diversi vengono salvati come `.bak-AAAAMMGG-HHMM`.
+- **Non** installa OGN, non configura Wi-Fi e non tocca Tailscale: le chiavi restano a mano.
+- Dopo il riavvio, 3-4 minuti dopo: `stato` (riepilogo con verdetto).
+
+---
+
 ## 1. VERIFICA SISTEMA
 ```bash
 date; date -u; uptime -p; uptime -s

@@ -1,11 +1,13 @@
 #!/bin/bash
-# stato_stazione.sh v1.0 - riepilogo mattutino della stazione OGN (Pi 4B di prova e Pi 3A+)
+# stato_stazione.sh v1.3 - riepilogo mattutino della stazione OGN (Pi 4B di prova e Pi 3A+)
 # Uso:  sudo bash /boot/stato_stazione.sh
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, alimentazione,
 # batteria (se l'INA219 e' collegato), scatola (BME280) e disco. In fondo il verdetto.
 # Non modifica niente: legge soltanto.
 
 PROBLEMI=0
+# Impostazioni della stazione (profilo pacco, SCHEDULE): create da install.sh
+[ -f /etc/default/ogn-boot-setup ] && . /etc/default/ogn-boot-setup
 ok()   { printf '  [OK] %s\n' "$*"; }
 warn() { printf '  [!!] %s\n' "$*"; PROBLEMI=$((PROBLEMI + 1)); }
 info() { printf '       %s\n' "$*"; }
