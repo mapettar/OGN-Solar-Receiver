@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.4 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.5 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -7,6 +7,11 @@
 # Non modifica niente: legge soltanto.
 # v1.4: aggiunta la sezione "Ricevitore": il solo processo ogn-rf in esecuzione NON prova che
 #       riceva (31 ott 2026: chiavetta non rilevata dall'avvio, ogn-rf in attesa, "TUTTO OK").
+# v1.5: dalla prova reale con chiavetta scollegata e ricollegata:
+#       - i tentativi falliti di ogn-rf distinguono "in corso" da "episodio concluso" (ora dell'ultimo);
+#       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
+#       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
+#       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
 
 PROBLEMI=0
 # Impostazioni della stazione (profilo pacco, SCHEDULE): create da install.sh
@@ -71,6 +76,7 @@ if [ -f "$DSLOG" ]; then
   PRIMA=$(grep -a "^$OGGI" "$DSLOG" | head -1)
   info "prima lettura di oggi: ${PRIMA:-nessuna}"
   case "$PRIMA" in *"st=0x8"*) warn "alla prima lettura del giorno OSF acceso: l'ora si era persa durante la notte";;
+                   *"Read failed"*) info "la prima lettura del giorno e' fallita: non si puo' dire se l'ora era presente";;
                    "") : ;; *) ok "alla prima lettura del giorno l'ora era presente";; esac
   N_OSF=$(grep -a "^$OGGI" "$DSLOG" | grep -ac "st=0x[89a-f]")
   N_ERR=$(grep -a "^$OGGI" "$DSLOG" | grep -ac "Read failed")
@@ -118,26 +124,47 @@ if [ "${N_USB:-0}" -gt 0 ]; then
 else
   ok "nessun errore USB nel log del kernel"
 fi
+# Tentativi falliti di ogn-rf ("Cannot open device"): in corso, concluso o solo all'avvio
 if command -v journalctl >/dev/null 2>&1; then
-  N_APRI=$(journalctl -b -u "$UNITA_RF" --no-pager 2>/dev/null | grep -ac 'Cannot open device')
-  N_REC=$(journalctl -u "$UNITA_RF" --since '10 min ago' --no-pager 2>/dev/null | grep -ac 'Cannot open device')
-  if [ "${N_REC:-0}" -gt 0 ]; then
-    warn "ogn-rf non riesce ad aprire la chiavetta: $N_REC tentativi falliti negli ultimi 10 minuti"
-  elif [ "${N_APRI:-0}" -ge 6 ]; then
-    warn "ogn-rf ha avuto $N_APRI tentativi falliti di apertura della chiavetta dall'avvio (ora risolto)"
-  else
+  FALLITI=$(journalctl -b -u "$UNITA_RF" -o short-unix --no-pager 2>/dev/null | grep -a 'Cannot open device')
+  N_APRI=$(printf '%s' "$FALLITI" | grep -ac 'Cannot open device')
+  ULT=$(printf '%s\n' "$FALLITI" | tail -1 | cut -d. -f1)
+  if [ "${N_APRI:-0}" -eq 0 ] || ! [ "${ULT:-x}" -eq "${ULT:-x}" ] 2>/dev/null; then
     ok "ogn-rf apre la chiavetta senza errori"
+  else
+    QUANDO=$(date -d "@$ULT" +%H:%M:%S 2>/dev/null)
+    if [ $(( $(date +%s) - ULT )) -lt 90 ]; then
+      warn "ogn-rf NON riesce ad aprire la chiavetta: ultimo tentativo fallito alle $QUANDO ($N_APRI dall'avvio)"
+    elif [ "$N_APRI" -ge 6 ]; then
+      warn "episodio concluso: ogn-rf ha avuto $N_APRI tentativi falliti dall'avvio, l'ultimo alle $QUANDO (ora la chiavetta si apre)"
+    else
+      info "ogn-rf: $N_APRI tentativi falliti dall'avvio (ultimo alle $QUANDO): normale all'accensione"
+    fi
   fi
 fi
-RFCPU=$(ps -C ogn-rf -o pcpu= 2>/dev/null | awk '{s += $1} END {printf "%.0f", s}')
-info "CPU di ogn-rf: ${RFCPU:-0}% (media dall'avvio)"
-if [ "$SEC" -ge 600 ] && [ "${RFCPU:-0}" -lt 10 ] && [ -n "${SDR:-}" ]; then
-  warn "ogn-rf quasi inattivo con la chiavetta presente: controllare $UNITA_RF"
+# CPU di ogn-rf sul momento (1 s): un ricevitore che lavora sta intorno al 100% di un core
+cpu_istantanea() {
+  local pid=$1 t1 t2 hz
+  hz=$(getconf CLK_TCK 2>/dev/null || echo 100)
+  t1=$(awk '{print $14 + $15}' "/proc/$pid/stat" 2>/dev/null) || return 1
+  sleep 1
+  t2=$(awk '{print $14 + $15}' "/proc/$pid/stat" 2>/dev/null) || return 1
+  echo $(( (t2 - t1) * 100 / hz ))
+}
+RFPID=$(pgrep -x ogn-rf 2>/dev/null | head -1)
+if [ -n "$RFPID" ]; then
+  RFCPU=$(cpu_istantanea "$RFPID")
+  info "CPU di ogn-rf sul momento: ${RFCPU:-n/d}% (un ricevitore che lavora sta intorno al 100%)"
+  if [ -n "${SDR:-}" ] && [ "$SEC" -ge 300 ] && [ -n "$RFCPU" ] && [ "$RFCPU" -lt 15 ]; then
+    warn "ogn-rf quasi inattivo con la chiavetta presente ($RFCPU%): controllare $UNITA_RF"
+  fi
+else
+  info "processo ogn-rf non trovato"
 fi
 if ss -tn 2>/dev/null | grep -E ':(14580|10152)( |$)' | grep -q ESTAB; then
-  ok "collegamento al server APRS stabilito"
+  ok "rete: collegamento al server APRS stabilito (non prova che si riceva)"
 else
-  warn "nessun collegamento al server APRS (porta 14580)"
+  warn "nessun collegamento al server APRS (porta 14580): rete o server non raggiungibili"
 fi
 
 # --- 5. Alimentazione e temperatura ----------------------------------------

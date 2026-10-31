@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh v1.1 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.2 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
 #
@@ -75,7 +75,7 @@ if [ "$NOSYSTEM" -eq 0 ]; then
   command -v crontab  >/dev/null 2>&1 || NEED="$NEED cron"
   command -v python3  >/dev/null 2>&1 || NEED="$NEED python3"
   command -v lsusb    >/dev/null 2>&1 || NEED="$NEED usbutils"       # lo usa "stato" per la chiavetta RTL-SDR
-  if [ -n "$NEED" ]; then info "installo:$NEED"; apt-get update -qq; apt-get install -y -qq $NEED; else info "nessun pacchetto da installare"; fi
+  if [ -n "$NEED" ]; then info "installo:$NEED"; apt-get update -qq; apt-get install -y -qq --no-install-recommends $NEED; else info "nessun pacchetto da installare"; fi
 
   say "I2C"
   CFG=/boot/firmware/config.txt; [ -f "$CFG" ] || CFG=/boot/config.txt
@@ -159,6 +159,6 @@ say "Fatto"
 info "pacco: $PACCO - spegnimento serale: $(grep '^SCHEDULE=' "$DEF" | cut -d= -f2)"
 info "1) Riavvia la Pi:  sudo reboot"
 info "2) Dopo 3-4 minuti:  stato"
-info "3) Tailscale e ReceiverName (/etc/rtlsdr-ogn.conf o equivalente) restano da fare a mano, con le tue chiavi."
+info "3) Tailscale e il nome del ricevitore (riga  Call = \"NOME\";  nel Template.conf di rtlsdr-ogn, di solito ~/rtlsdr-ogn/rtlsdr-ogn-0.3.3/Template.conf) restano da fare a mano, con le tue chiavi."
 [ "$(grep '^SCHEDULE=' "$DEF" | cut -d= -f2)" = "off" ] && info "Spegnimento serale OFF: per attivarlo, con ATtiny e DS3231 collegati:  echo SCHEDULE=on | sudo tee /etc/default/ogn-boot-setup"
 exit 0

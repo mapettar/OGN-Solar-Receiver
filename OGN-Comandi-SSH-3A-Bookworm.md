@@ -173,6 +173,8 @@ dmesg | grep -iE 'usb 1-1|error -71|EMI' | tail -20          # errori USB dall'a
 journalctl -b -u rtlsdr-ogn --no-pager | grep -c 'Cannot open device'
 vcgencmd get_throttled                                       # 0x0 = nessun sottovoltaggio
 ```
+Se la rete di casa va giù (blackout o router spento) la stazione continua a ricevere ma non può inviare: su KTrax compare ferma. Per distinguere, guarda `batteria.csv` (consumo ~5 W anche dopo l'ora in cui KTrax si ferma) e il giornale del servizio `ogn-decode`.
+
 Cosa significano gli errori: `error -71` e `disabled by hub (EMI?)` sono errori di comunicazione sul cavo (contatto, cavo, alimentazione della porta o disturbo). Nessuna riga USB all'avvio = la porta non vede nulla.
 
 Cosa fare, in ordine:
@@ -181,7 +183,7 @@ Cosa fare, in ordine:
 3. Se gli errori `-71` tornano, prova un'altra chiavetta (le NESDR hanno tutte il numero di serie `00000001`: non collegarne due insieme) e un cavo diverso; misura i 5 V ai test point TP1/TP2 sul retro della Pi con la chiavetta inserita.
 4. La chiavetta si può provare su un PC: `Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_0BDA' }` in PowerShell deve mostrarla con `Status: OK`.
 
-Causa del caso del 31 ott: **non identificata**. Il comando `stato` (v1.4) controlla ora chiavetta, errori USB e collegamento al server, per accorgersene al mattino; per ricostruire cosa è successo nei giorni precedenti serve il journal persistente (sezione 2).
+Causa del caso del 31 ott: **non identificata**. Il comando `stato` (v1.5) controlla ora chiavetta, errori USB e collegamento al server, per accorgersene al mattino; per ricostruire cosa è successo nei giorni precedenti serve il journal persistente (sezione 2).
 
 ## 12. IL COMANDO `stato`
 ```bash
@@ -192,10 +194,10 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 | Sezione | Controlla | Se c'è un `[!!]` |
 |---|---|---|
 | Avvio | accensione alle 10:00 locali (o 08:00 UTC) | un riavvio manuale lo fa comparire: è atteso. Altrimenti: ora del DS3231 persa o ATtiny in recupero |
-| Orologio DS3231 | flag OSF, differenza dall'ora UTC, prima lettura del giorno, NTP | OSF acceso = l'ora si è persa; controlla la CR2032 e la sezione 3 |
+| Orologio DS3231 | flag OSF, differenza dall'ora UTC, prima lettura del giorno (se fallita non si può dire se l'ora c'era), NTP | OSF acceso = l'ora si è persa; controlla la CR2032 e la sezione 3. Senza DS3231 (prove su altra Pi) è normale |
 | Ciclo spegnimento / avvio | spegnimento di ieri e avvio di oggi in `ogn-eventi.log` | taglio brusco dell'ATtiny: controlla batteria e soglie |
 | Servizi OGN | processi `ogn-rf` e `ogn-decode` | `sudo systemctl restart rtlsdr-ogn ogn-decode` |
-| Ricevitore | chiavetta in `lsusb`, errori USB nel kernel, tentativi falliti di `ogn-rf`, CPU di `ogn-rf`, collegamento APRS | sezione 11 |
+| Ricevitore | chiavetta in `lsusb`, errori USB nel kernel, tentativi falliti di `ogn-rf` (**in corso** oppure **episodio concluso** con l'ora dell'ultimo), CPU di `ogn-rf` sul momento (sta intorno al 100% se lavora), rete verso il server APRS (dice solo che la rete c'è, non che si riceve) | sezione 11 |
 | Alimentazione e temperatura | `get_throttled` (sottovoltaggio, limitazioni) | alimentazione della Pi: cavi, Mini560 |
 | Batteria | INA219: tensione, corrente, potenza, giudizio | pacco scarico: controlla pannello e carica |
 | Scatola (BME280) | temperatura, umidità, margine dal punto di rugiada | umidità ≥ 80 % o margine < 3 °C: rischio condensa |

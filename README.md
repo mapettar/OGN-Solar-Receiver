@@ -55,7 +55,7 @@ sudo reboot
 
 ## Il comando `stato`
 
-Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR e collegamento al server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, umidità della scatola, disco.
+Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, umidità della scatola, disco.
 
 ## Impostazioni consigliate della Pi
 
