@@ -113,6 +113,12 @@ Soglie dell'ATtiny (conteggio = V × rapporto ÷ VCC × 1023). **Tabella della v
 
 Per misurare anche la **carica** serve un secondo INA219, in serie sul positivo tra l'uscita del CN3722 e il pacco (VIN+ lato CN3722, VIN− lato pacco). Il suo indirizzo deve essere 0x41: si unisce con una goccia di stagno il ponticello **A0**. Il primo INA219 (0x40) misura solo il consumo, perché sta tra il pacco e la Mini560.
 
+Lettura a mano del secondo INA219 (corrente positiva = entra nel pacco, tensione = lato pacco):
+```bash
+sudo python3 /usr/local/sbin/monitor_batteria.py --addr 0x41 --carica
+```
+Con `install.sh` v1.3 il cron scrive una riga ogni 10 minuti in `/var/log/carica.csv` (`data,V,mA,W`) e `stato` mostra la sezione **Carica** con l'energia in ingresso di oggi. Tra VIN+ e VIN− si misurano alcune decine di mV solo mentre carica (0,1 Ω di shunt: 90 mV ≈ 0,9 A); a carica ferma le due tensioni sono uguali. Dopo lo spegnimento serale la Pi non registra, quindi l'energia in ingresso reale è maggiore di quella mostrata.
+
 ## 6. TAILSCALE
 ```bash
 tailscale status; tailscale ip
@@ -200,6 +206,7 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 | Ricevitore | chiavetta in `lsusb`, errori USB nel kernel, tentativi falliti di `ogn-rf` (**in corso** oppure **episodio concluso** con l'ora dell'ultimo), CPU di `ogn-rf` sul momento (misurata sulla Zero 2W: da 40% a oltre 100% quando lavora; sotto 15% è sospetto), rete verso il server APRS (dice solo che la rete c'è, non che si riceve) | sezione 11 |
 | Alimentazione e temperatura | `get_throttled` (sottovoltaggio, limitazioni) | alimentazione della Pi: cavi, Mini560 |
 | Batteria | INA219: tensione, corrente, potenza, giudizio | pacco scarico: controlla pannello e carica |
+| Carica (secondo INA219) | tensione lato pacco, corrente e potenza di carica, energia in ingresso e consumo di oggi | corrente negativa = INA219 montato al contrario; nessun dato = cron non attivo o INA219 non montato |
 | Scatola (BME280) | temperatura, umidità, margine dal punto di rugiada | umidità ≥ 80 % o margine < 3 °C: rischio condensa |
 | Disco | uso della SD | spazio quasi pieno |
 

@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.5 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.6 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,8 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.6: sezione "Carica" se c'e' il secondo INA219 (0x41) in serie tra caricabatterie e pacco:
+#       tensione, corrente e potenza di carica, energia in ingresso e consumo di oggi.
 
 PROBLEMI=0
 # Impostazioni della stazione (profilo pacco, SCHEDULE): create da install.sh
@@ -186,8 +188,9 @@ fi
 # --- 6. Batteria (INA219) --------------------------------------------------
 titolo "Batteria"
 MB=""
-for f in /usr/local/sbin/monitor_batteria.py /boot/monitor_batteria.py /boot/firmware/monitor_batteria.py /home/pi/monitor_batteria.py; do
-  [ -f "$f" ] && { MB=$f; break; }
+[ -n "${MONITOR_BATTERIA:-}" ] && [ -f "$MONITOR_BATTERIA" ] && MB=$MONITOR_BATTERIA
+for f in ${MB:+/nonexistent} /usr/local/sbin/monitor_batteria.py /boot/monitor_batteria.py /boot/firmware/monitor_batteria.py /home/pi/monitor_batteria.py; do
+  [ -z "$MB" ] && [ -f "$f" ] && { MB=$f; break; }
 done
 if [ -n "$MB" ]; then
   OUT=$(timeout 10 python3 "$MB" --pacco "${OGN_PACCO:-3s-liion}" 2>&1)
@@ -207,6 +210,31 @@ if [ -n "$MB" ]; then
   fi
 else
   info "monitor_batteria.py non trovato"
+fi
+
+# --- 6b. Carica (secondo INA219, 0x41, tra caricabatterie e pacco) ----------
+BATCSV=${BATCSV:-/var/log/batteria.csv}
+CARICACSV=${CARICACSV:-/var/log/carica.csv}
+if [ -n "$MB" ]; then
+  titolo "Carica (caricabatterie / pannello)"
+  OUTC=$(timeout 10 python3 "$MB" --addr 0x41 --carica 2>&1)
+  if echo "$OUTC" | grep -q Traceback; then
+    info "secondo INA219 (0x41) non risponde (non montato?): salto"
+  else
+    echo "$OUTC" | head -4 | sed 's/^/       /'
+    MAC=$(echo "$OUTC" | awk '/Carica:/{print $2}')
+    if [ -n "$MAC" ] && awk -v m="$MAC" 'BEGIN{exit !(m < -50)}'; then
+      warn "corrente di carica negativa ($MAC mA): INA219 al contrario o energia che esce dal pacco verso il caricabatterie"
+    fi
+    if [ -f "$CARICACSV" ] && grep -aq "^$OGGI" "$CARICACSV"; then
+      IN=$(grep -a "^$OGGI" "$CARICACSV" | awk -F, '$4+0 > 0 {s += $4; if ($4 > m) m = $4; n++} END {printf "%.1f %.1f %d", s/6, m+0, n+0}')
+      OUT=$(grep -a "^$OGGI" "$BATCSV" 2>/dev/null | awk -F, '$4+0 > 0 {s += $4} END {printf "%.1f", s/6}')
+      info "oggi, a Pi accesa (campioni ogni 10 min): in ingresso ${IN%% *} Wh (massimo $(echo "$IN" | cut -d' ' -f2) W su $(echo "$IN" | cut -d' ' -f3) campioni con carica), consumo ${OUT:-0} Wh"
+      info "dalle ore di spegnimento serale all'avvio la Pi non registra: l'energia in ingresso reale e' maggiore"
+    else
+      info "nessun dato di carica di oggi in $CARICACSV (cron del secondo INA219 non attivo?)"
+    fi
+  fi
 fi
 
 # --- 7. Scatola (BME280) ---------------------------------------------------

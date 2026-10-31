@@ -9,9 +9,9 @@
 | `rpi-boot/monitor_batteria.py` | `/boot/` sulla RPi | Lettura INA219 (pacco 3S, librerie Adafruit) |
 | `rpi-bookworm/ogn-boot-setup.sh` + `.service` | `/usr/local/sbin/` e `/etc/systemd/system/` | Raspberry Pi 3A+ con Bookworm: scrive l'ora sul DS3231 dopo la sincronizzazione e (con `SCHEDULE=on` in `/etc/default/ogn-boot-setup`) imposta lo spegnimento serale |
 | `rpi-bookworm/calc_sunset.py` | `/usr/local/sbin/` | Come `rpi-boot/calc_sunset.py` |
-| `rpi-bookworm/monitor_batteria.py` | `/usr/local/sbin/` | Lettura INA219 senza librerie. Profili `2s-lifepo4` (default) e `3s-liion` con `--pacco`; `--csv` per i log |
+| `rpi-bookworm/monitor_batteria.py` | `/usr/local/sbin/` | Lettura INA219 senza librerie (v1.9). Profili `2s-lifepo4` (default) e `3s-liion` con `--pacco`; `--csv` per i log; `--addr 0x41 --carica` per il secondo INA219 in serie al caricabatterie (corrente positiva = entra nel pacco) |
 | `rpi-bookworm/install.sh` | scaricato ed eseguito con `sudo` | Installa tutti gli script qui sotto, il comando `stato`, i cron e la rotazione dei log. Presuppone rtlsdr-ogn già funzionante. Provato solo a secco |
-| `rpi-bookworm/stato_stazione.sh` (comando `stato`) | `/usr/local/sbin/` | Riepilogo mattutino con `[OK]`/`[!!]`: avvio, DS3231, ciclo spegnimento/avvio, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete APRS**, alimentazione, batteria, BME280, disco (v1.5) |
+| `rpi-bookworm/stato_stazione.sh` (comando `stato`) | `/usr/local/sbin/` | Riepilogo mattutino con `[OK]`/`[!!]`: avvio, DS3231, ciclo spegnimento/avvio, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete APRS**, alimentazione, batteria, **carica (secondo INA219)**, BME280, disco (v1.6) |
 | `rpi-bookworm/bme280_log.py` | `/usr/local/sbin/` | Temperatura, umidità, pressione e punto di rugiada della scatola in `/boot/bme280.log`; avviso in `ogn-eventi.log` a umidità ≥ 80 % |
 | `rpi-bookworm/ds3231_log.sh` | `/usr/local/sbin/` | Una riga al minuto con ora e stato del DS3231 in `/var/log/ds3231.log` (cron) |
 

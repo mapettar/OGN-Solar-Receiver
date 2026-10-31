@@ -25,6 +25,7 @@ Stazione ricevente OGN (Open Glider Network) autonoma: pannello solare, batteria
 - **Spegnimento serale** (con `SCHEDULE=on`): `calc_sunset.py` calcola il tramonto e programma l'halt della Pi 90 minuti prima, il taglio dell'alimentazione 2 minuti dopo l'halt, con tetto alle 19:00 ora legale.
 - **Orologio perso:** se il DS3231 ha perso l'ora, l'ATtiny alterna 2 ore acceso e 30 minuti spento, e la Pi riscrive l'ora al primo avvio.
 - L'**INA219** (0x40) sta tra l'uscita del pacco e la Mini560: misura il consumo della stazione, non la carica.
+- Un **secondo INA219** (0x41, ponticello A0) e' in serie sul positivo tra l'uscita del CN3722 (VIN+) e il pacco (VIN-): misura tensione, corrente e potenza di carica. Corrente positiva = entra nel pacco. Il cron scrive `/var/log/carica.csv` ogni 10 minuti e `stato` mostra l'energia in ingresso di oggi. Serve per dimensionare il pannello (10 W o 20 W).
 
 ## Soglie della batteria (valori misurati)
 
@@ -55,7 +56,7 @@ sudo reboot
 
 ## Il comando `stato`
 
-Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, umidità della scatola, disco.
+Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, carica (se c'è il secondo INA219), umidità della scatola, disco.
 
 ## Impostazioni consigliate della Pi
 

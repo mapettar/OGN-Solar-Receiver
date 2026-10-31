@@ -1,7 +1,8 @@
 #!/bin/bash
-# install.sh v1.2 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.3 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
+# v1.3: cron per il secondo INA219 (0x41, carica) in /var/log/carica.csv; se non e' montato non scrive nulla.
 #
 # NON installa rtlsdr-ogn, NON configura Wi-Fi e NON tocca Tailscale (nessuna chiave qui).
 # Prerequisito: Raspberry Pi OS Lite Bookworm con SSH attivo e rtlsdr-ogn gia' funzionante.
@@ -128,16 +129,17 @@ fi
 # Cron e rotazione dei log
 mkdir -p "$DESTDIR/etc/cron.d" "$DESTDIR/etc/logrotate.d"
 cat > "$DESTDIR/etc/cron.d/ogn-station" <<EOF
-# Creato da install.sh: log DS3231 (1 min), BME280 (5 min), batteria INA219 (10 min)
+# Creato da install.sh: log DS3231 (1 min), BME280 (5 min), batteria INA219 0x40 (10 min), carica INA219 0x41 (10 min, se montato)
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 * * * * *    root /usr/local/sbin/ds3231_log.sh
 */5 * * * *  root /usr/bin/python3 /usr/local/sbin/bme280_log.py >/dev/null 2>&1
 */10 * * * * root /usr/bin/python3 /usr/local/sbin/monitor_batteria.py --pacco $PACCO --csv >> /var/log/batteria.csv 2>/dev/null
+*/10 * * * * root /usr/bin/python3 /usr/local/sbin/monitor_batteria.py --addr 0x41 --carica --csv >> /var/log/carica.csv 2>/dev/null
 EOF
 chmod 644 "$DESTDIR/etc/cron.d/ogn-station"; info "$DESTDIR/etc/cron.d/ogn-station"
 cat > "$DESTDIR/etc/logrotate.d/ogn-station" <<'EOF'
-/var/log/ds3231.log /var/log/batteria.csv /var/log/ogn-boot-setup.log {
+/var/log/ds3231.log /var/log/batteria.csv /var/log/carica.csv /var/log/ogn-boot-setup.log {
     weekly
     rotate 4
     compress
