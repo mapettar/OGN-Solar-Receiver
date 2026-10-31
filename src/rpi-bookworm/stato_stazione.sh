@@ -142,7 +142,7 @@ if command -v journalctl >/dev/null 2>&1; then
     fi
   fi
 fi
-# CPU di ogn-rf sul momento (1 s): un ricevitore che lavora sta intorno al 100% di un core
+# CPU di ogn-rf sul momento (1 s): varia (40-110% sulla Zero 2W); avviso solo sotto il 15%
 cpu_istantanea() {
   local pid=$1 t1 t2 hz
   hz=$(getconf CLK_TCK 2>/dev/null || echo 100)
@@ -154,7 +154,7 @@ cpu_istantanea() {
 RFPID=$(pgrep -x ogn-rf 2>/dev/null | head -1)
 if [ -n "$RFPID" ]; then
   RFCPU=$(cpu_istantanea "$RFPID")
-  info "CPU di ogn-rf sul momento: ${RFCPU:-n/d}% (un ricevitore che lavora sta intorno al 100%)"
+  info "CPU di ogn-rf sul momento: ${RFCPU:-n/d}% (misurata sulla Zero 2W: da 40% a oltre 100% quando lavora; sotto 15% e' sospetto)"
   if [ -n "${SDR:-}" ] && [ "$SEC" -ge 300 ] && [ -n "$RFCPU" ] && [ "$RFCPU" -lt 15 ]; then
     warn "ogn-rf quasi inattivo con la chiavetta presente ($RFCPU%): controllare $UNITA_RF"
   fi

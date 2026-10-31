@@ -197,7 +197,7 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 | Orologio DS3231 | flag OSF, differenza dall'ora UTC, prima lettura del giorno (se fallita non si può dire se l'ora c'era), NTP | OSF acceso = l'ora si è persa; controlla la CR2032 e la sezione 3. Senza DS3231 (prove su altra Pi) è normale |
 | Ciclo spegnimento / avvio | spegnimento di ieri e avvio di oggi in `ogn-eventi.log` | taglio brusco dell'ATtiny: controlla batteria e soglie |
 | Servizi OGN | processi `ogn-rf` e `ogn-decode` | `sudo systemctl restart rtlsdr-ogn ogn-decode` |
-| Ricevitore | chiavetta in `lsusb`, errori USB nel kernel, tentativi falliti di `ogn-rf` (**in corso** oppure **episodio concluso** con l'ora dell'ultimo), CPU di `ogn-rf` sul momento (sta intorno al 100% se lavora), rete verso il server APRS (dice solo che la rete c'è, non che si riceve) | sezione 11 |
+| Ricevitore | chiavetta in `lsusb`, errori USB nel kernel, tentativi falliti di `ogn-rf` (**in corso** oppure **episodio concluso** con l'ora dell'ultimo), CPU di `ogn-rf` sul momento (misurata sulla Zero 2W: da 40% a oltre 100% quando lavora; sotto 15% è sospetto), rete verso il server APRS (dice solo che la rete c'è, non che si riceve) | sezione 11 |
 | Alimentazione e temperatura | `get_throttled` (sottovoltaggio, limitazioni) | alimentazione della Pi: cavi, Mini560 |
 | Batteria | INA219: tensione, corrente, potenza, giudizio | pacco scarico: controlla pannello e carica |
 | Scatola (BME280) | temperatura, umidità, margine dal punto di rugiada | umidità ≥ 80 % o margine < 3 °C: rischio condensa |
