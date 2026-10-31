@@ -1,9 +1,12 @@
 #!/bin/bash
-# stato_stazione.sh v1.3 - riepilogo mattutino della stazione OGN (Pi 4B di prova e Pi 3A+)
-# Uso:  sudo bash /boot/stato_stazione.sh
-# Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, alimentazione,
-# batteria (se l'INA219 e' collegato), scatola (BME280) e disco. In fondo il verdetto.
+# stato_stazione.sh v1.4 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
+# Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
+# e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
+# scatola (BME280) e disco. In fondo il verdetto.
 # Non modifica niente: legge soltanto.
+# v1.4: aggiunta la sezione "Ricevitore": il solo processo ogn-rf in esecuzione NON prova che
+#       riceva (31 ott 2026: chiavetta non rilevata dall'avvio, ogn-rf in attesa, "TUTTO OK").
 
 PROBLEMI=0
 # Impostazioni della stazione (profilo pacco, SCHEDULE): create da install.sh
@@ -98,6 +101,44 @@ titolo "Servizi OGN"
 for p in ogn-rf ogn-decode; do
   if pgrep -f "$p" >/dev/null 2>&1; then ok "$p in esecuzione"; else warn "$p NON in esecuzione"; fi
 done
+
+# --- 4b. Ricevitore: chiavetta RTL-SDR e collegamento al server ------------
+titolo "Ricevitore (chiavetta e server OGN)"
+UNITA_RF=${UNITA_RF:-rtlsdr-ogn}
+if command -v lsusb >/dev/null 2>&1; then
+  SDR=$(lsusb 2>/dev/null | grep -iE 'ID 0bda:28(32|38)' | head -1)
+  if [ -n "$SDR" ]; then ok "chiavetta RTL-SDR presente: ${SDR#*ID }"
+  else warn "chiavetta RTL-SDR NON rilevata da lsusb: ogn-rf non puo' ricevere"; fi
+else
+  info "lsusb non installato (pacchetto usbutils)"
+fi
+N_USB=$(dmesg 2>/dev/null | grep -aciE 'usb [0-9.-]+: (device descriptor read.*error -71|device not accepting address)|disabled by hub')
+if [ "${N_USB:-0}" -gt 0 ]; then
+  warn "errori USB nel log del kernel dall'avvio: $N_USB righe (contatto, cavo o alimentazione della porta?)"
+else
+  ok "nessun errore USB nel log del kernel"
+fi
+if command -v journalctl >/dev/null 2>&1; then
+  N_APRI=$(journalctl -b -u "$UNITA_RF" --no-pager 2>/dev/null | grep -ac 'Cannot open device')
+  N_REC=$(journalctl -u "$UNITA_RF" --since '10 min ago' --no-pager 2>/dev/null | grep -ac 'Cannot open device')
+  if [ "${N_REC:-0}" -gt 0 ]; then
+    warn "ogn-rf non riesce ad aprire la chiavetta: $N_REC tentativi falliti negli ultimi 10 minuti"
+  elif [ "${N_APRI:-0}" -ge 6 ]; then
+    warn "ogn-rf ha avuto $N_APRI tentativi falliti di apertura della chiavetta dall'avvio (ora risolto)"
+  else
+    ok "ogn-rf apre la chiavetta senza errori"
+  fi
+fi
+RFCPU=$(ps -C ogn-rf -o pcpu= 2>/dev/null | awk '{s += $1} END {printf "%.0f", s}')
+info "CPU di ogn-rf: ${RFCPU:-0}% (media dall'avvio)"
+if [ "$SEC" -ge 600 ] && [ "${RFCPU:-0}" -lt 10 ] && [ -n "${SDR:-}" ]; then
+  warn "ogn-rf quasi inattivo con la chiavetta presente: controllare $UNITA_RF"
+fi
+if ss -tn 2>/dev/null | grep -E ':(14580|10152)( |$)' | grep -q ESTAB; then
+  ok "collegamento al server APRS stabilito"
+else
+  warn "nessun collegamento al server APRS (porta 14580)"
+fi
 
 # --- 5. Alimentazione e temperatura ----------------------------------------
 titolo "Alimentazione e temperatura"

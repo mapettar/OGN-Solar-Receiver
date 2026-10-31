@@ -1,5 +1,5 @@
 #!/bin/bash
-# install.sh v1.0 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.1 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
 #
@@ -74,6 +74,7 @@ if [ "$NOSYSTEM" -eq 0 ]; then
   command -v i2cget   >/dev/null 2>&1 || NEED="$NEED i2c-tools"
   command -v crontab  >/dev/null 2>&1 || NEED="$NEED cron"
   command -v python3  >/dev/null 2>&1 || NEED="$NEED python3"
+  command -v lsusb    >/dev/null 2>&1 || NEED="$NEED usbutils"       # lo usa "stato" per la chiavetta RTL-SDR
   if [ -n "$NEED" ]; then info "installo:$NEED"; apt-get update -qq; apt-get install -y -qq $NEED; else info "nessun pacchetto da installare"; fi
 
   say "I2C"
