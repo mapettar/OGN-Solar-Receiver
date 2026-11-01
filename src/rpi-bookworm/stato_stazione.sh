@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.6 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.7 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,7 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.7: sezione "Rete" con indirizzo locale e indirizzo Tailscale (per ritrovare la stazione).
 # v1.6: sezione "Carica" se c'e' il secondo INA219 (0x41) in serie tra caricabatterie e pacco:
 #       tensione, corrente e potenza di carica, energia in ingresso e consumo di oggi.
 
@@ -47,6 +48,19 @@ elif [[ "$AVVIO_UTC" > "07:59" && "$AVVIO_UTC" < "08:11" ]]; then
   ok "partita alle 08:00 UTC (sistema con script UTC)"
 else
   warn "avvio fuori orario (atteso 10:00 locali o 08:00 UTC): riavvio manuale o ATtiny in recupero?"
+fi
+
+# --- 1b. Rete (indirizzi per raggiungere la stazione) ----------------------
+titolo "Rete"
+IP_LOC=$(hostname -I 2>/dev/null | awk '{print $1}')
+info "nome ${HOSTNAME:-$(hostname)}, indirizzo locale ${IP_LOC:-nessuno}"
+if command -v tailscale >/dev/null 2>&1; then
+  IP_TS=$(timeout 5 tailscale ip -4 2>/dev/null | head -1)
+  if [ -n "$IP_TS" ]; then info "Tailscale: $IP_TS"
+  elif systemctl is-active --quiet tailscaled 2>/dev/null; then warn "Tailscale e' attivo ma senza indirizzo: non collegato all'account (tailscale up)"
+  else warn "Tailscale installato ma il servizio non e' attivo (sudo systemctl enable --now tailscaled)"; fi
+else
+  info "Tailscale non installato"
 fi
 
 # --- 2. Orologio DS3231 ----------------------------------------------------
