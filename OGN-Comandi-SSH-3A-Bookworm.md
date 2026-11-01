@@ -55,7 +55,7 @@ tail -2 ~/health.log                      # rf= e dec= devono valere 1 (cron ogn
 journalctl -u ogn-decode -n 30 --no-pager
 ```
 Pagine di stato: `http://ogn-pi3a:8082` (ogn-rf) e `http://ogn-pi3a:8083` (ogn-decode). Verifica su live.glidernet.org che **MCucco** sia online.
-Il journal non è persistente: per conservarlo dopo i riavvii, `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`.
+Il journal di default non è persistente. Per conservare i log dopo i riavvii: in `/etc/systemd/journald.conf` imposta `Storage=persistent` e `SystemMaxUse=50M` (sulla stazione MCucco c'era `Storage=volatile`, che annulla la cartella `/var/log/journal`), poi `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`. Verifica con `journalctl --list-boots`.
 
 ## 3. DS3231 (orologio)
 ```bash
@@ -189,7 +189,7 @@ Cosa fare, in ordine:
 3. Se gli errori `-71` tornano, prova un'altra chiavetta (le NESDR hanno tutte il numero di serie `00000001`: non collegarne due insieme) e un cavo diverso; misura i 5 V ai test point TP1/TP2 sul retro della Pi con la chiavetta inserita.
 4. La chiavetta si può provare su un PC: `Get-PnpDevice -PresentOnly | Where-Object { $_.InstanceId -match 'VID_0BDA' }` in PowerShell deve mostrarla con `Status: OK`.
 
-Causa del caso del 31 ott: **non identificata**. Il comando `stato` (v1.5) controlla ora chiavetta, errori USB e collegamento al server, per accorgersene al mattino; per ricostruire cosa è successo nei giorni precedenti serve il journal persistente (sezione 2).
+Causa del caso del 31 ott: **non identificata**. Il comando `stato` (v1.6) controlla ora chiavetta, errori USB e collegamento al server, per accorgersene al mattino; per ricostruire cosa è successo nei giorni precedenti serve il journal persistente (sezione 2).
 
 ## 12. IL COMANDO `stato`
 ```bash

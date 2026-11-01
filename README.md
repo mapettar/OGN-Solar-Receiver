@@ -60,7 +60,7 @@ Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo c
 
 ## Impostazioni consigliate della Pi
 
-In `/boot/firmware/config.txt` (e `sudo systemctl disable --now bluetooth hciuart`): `dtparam=audio=off`, `dtoverlay=vc4-kms-v3d,nohdmi`, `dtoverlay=disable-bt`, `max_usb_current=1`. Con `disable-bt` la seriale PL011 passa sui pin GPIO14/15: se si collega un modulo (SIM7080G) va disattivata la console seriale. Per conservare i log del kernel e dei servizi dopo i riavvii: `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`.
+In `/boot/firmware/config.txt` (e `sudo systemctl disable --now bluetooth hciuart`): `dtparam=audio=off`, `dtoverlay=vc4-kms-v3d,nohdmi`, `dtoverlay=disable-bt`, `max_usb_current=1`. Con `disable-bt` la seriale PL011 passa sui pin GPIO14/15: se si collega un modulo (SIM7080G) va disattivata la console seriale. Per conservare i log dopo i riavvii: in `/etc/systemd/journald.conf` imposta `Storage=persistent` e `SystemMaxUse=50M` (sulla stazione MCucco c'era `Storage=volatile`, che annulla la cartella `/var/log/journal`), poi `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`. Verifica con `journalctl --list-boots`.
 
 ## Problemi noti
 
