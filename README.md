@@ -58,6 +58,10 @@ sudo reboot
 
 Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, carica (se c'è il secondo INA219), umidità della scatola, disco.
 
+### Pagina di stato (opzionale)
+
+Con `sudo bash install.sh --web on` il riepilogo di `stato` diventa anche una pagina HTML sulla porta **8090** (`stato_web.py` ogni 10 minuti, servita da `ogn-stato-web.service`, circa 10 MB di RAM). Si apre dalla rete locale o da Tailscale: **non aprire la porta sul router**. La pagina esiste solo con la Pi accesa e riporta l'ora dell'ultimo aggiornamento.
+
 ## Impostazioni consigliate della Pi
 
 In `/boot/firmware/config.txt` (e `sudo systemctl disable --now bluetooth hciuart`): `dtparam=audio=off`, `dtoverlay=vc4-kms-v3d,nohdmi`, `dtoverlay=disable-bt`, `max_usb_current=1`. Con `disable-bt` la seriale PL011 passa sui pin GPIO14/15: se si collega un modulo (SIM7080G) va disattivata la console seriale. Per conservare i log dopo i riavvii: in `/etc/systemd/journald.conf` imposta `Storage=persistent` e `SystemMaxUse=50M` (sulla stazione MCucco c'era `Storage=volatile`, che annulla la cartella `/var/log/journal`), poi `sudo mkdir -p /var/log/journal && sudo systemctl restart systemd-journald`. Verifica con `journalctl --list-boots`.
