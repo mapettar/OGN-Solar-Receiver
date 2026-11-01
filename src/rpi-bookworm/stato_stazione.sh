@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.8 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.9 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,7 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.9: nella sezione Ricevitore: riavvii automatici per la chiavetta (ogn-usb-watchdog.sh) e prove di oggi.
 # v1.8: modalita' "banco di prova": con SCHEDULE diverso da on e DS3231 assente (Pi di prova senza ATtiny)
 #       le voci di orologio, avvio e spegnimento diventano informative e non rendono rosso il verdetto.
 #       Sezione Carica: dice se il pacco sta caricando (corrente positiva), e' fermo o sta scaricando, con le ultime letture.
@@ -138,6 +139,12 @@ done
 # --- 4b. Ricevitore: chiavetta RTL-SDR e collegamento al server ------------
 titolo "Ricevitore (chiavetta e server OGN)"
 UNITA_RF=${UNITA_RF:-rtlsdr-ogn}
+if [ -f "$EVENTI" ]; then
+  N_WD=$(grep -a "^$(date -u +%F)" "$EVENTI" | grep -ac "watchdog-usb riavvio")
+  N_WDP=$(grep -a "^$(date -u +%F)" "$EVENTI" | grep -ac "watchdog-usb PROVA")
+  [ "$N_WD" -gt 0 ] && warn "oggi la Pi si e' riavviata $N_WD volte da sola perche' la chiavetta mancava (ogn-eventi.log, righe watchdog-usb)"
+  [ "$N_WDP" -gt 0 ] && info "watchdog in prova: oggi avrebbe riavviato $N_WDP volte (non ha riavviato)"
+fi
 if command -v lsusb >/dev/null 2>&1; then
   SDR=$(lsusb 2>/dev/null | grep -iE 'ID 0bda:28(32|38)' | head -1)
   if [ -n "$SDR" ]; then ok "chiavetta RTL-SDR presente: ${SDR#*ID }"

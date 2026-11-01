@@ -58,6 +58,10 @@ sudo reboot
 
 Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, carica (se c'è il secondo INA219), umidità della scatola, disco. Su una Pi di prova senza DS3231 e con `SCHEDULE=off` entra in **modalità banco di prova**: orologio, avvio e spegnimento diventano informativi e il verdetto riguarda solo chiavetta, servizi e rete.
 
+### Riavvio automatico se la chiavetta manca (opzionale)
+
+`ogn-usb-watchdog.sh` (cron ogni 5 minuti, `install.sh --watchdog prova|on`) riavvia la Pi se la chiavetta RTL-SDR non compare in `lsusb` o se `ogn-rf` non riesce ad aprirla, per almeno due controlli consecutivi. Limiti: 4 minuti dopo l'avvio, al massimo 2 riavvii al giorno (`WATCHDOG_MAX`), mai nei 45 minuti prima dello spegnimento serale. Con `WATCHDOG_USB=prova` in `/etc/default/ogn-boot-setup` scrive in `ogn-eventi.log` cosa farebbe senza riavviare. `stato` conta i riavvii di oggi. Non cura la causa (ancora sconosciuta): serve a non perdere il giorno.
+
 ### Pagina di stato (opzionale)
 
 Con `sudo bash install.sh --web on` il riepilogo di `stato` diventa anche una pagina HTML sulla porta **8090** (`stato_web.py` ogni 10 minuti, servita da `ogn-stato-web.service`, circa 10 MB di RAM). Si apre dalla rete locale o da Tailscale: **non aprire la porta sul router**. La pagina esiste solo con la Pi accesa e riporta l'ora dell'ultimo aggiornamento.

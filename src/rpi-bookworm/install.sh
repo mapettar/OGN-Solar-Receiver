@@ -1,7 +1,8 @@
 #!/bin/bash
-# install.sh v1.4 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.5 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
+# v1.5: opzione --watchdog off|prova|on: riavvio automatico se la chiavetta RTL-SDR manca (ogn-usb-watchdog.sh, cron ogni 5 min).
 # v1.4: opzione --web on: pagina di stato sulla porta 8090 (stato_web.py + ogn-stato-web.service), solo rete locale/Tailscale.
 # v1.3: cron per il secondo INA219 (0x41, carica) in /var/log/carica.csv; se non e' montato non scrive nulla.
 #
@@ -17,6 +18,7 @@
 #   --schedule on|off             on = spegnimento serale al tramonto (con ATtiny e DS3231 collegati);
 #                                 off = la Pi non si spegne da sola (default, sicuro per i banchi di prova)
 #   --web on|off                  on = pagina di stato HTML sulla porta 8090, aggiornata ogni 10 minuti (default off)
+#   --watchdog off|prova|on       riavvia la Pi se la chiavetta manca: prova = solo log, on = riavvia davvero (non cambia se omessa)
 #   --branch NOME                 ramo del repository (default rpi-bookworm-3a-plus)
 #   --local CARTELLA              usa i file di una copia locale invece di scaricarli
 #   --no-system                   non tocca apt, systemctl, timezone, config.txt (per i test)
@@ -27,6 +29,7 @@ BRANCH=rpi-bookworm-3a-plus
 PACCO=3s-liion
 SCHEDULE=off
 WEB=off
+WATCHDOG=""
 LOCAL=""
 NOSYSTEM=0
 DESTDIR=${DESTDIR:-}
@@ -37,16 +40,18 @@ while [ $# -gt 0 ]; do
     --pacco)    PACCO=$2; shift 2;;
     --schedule) SCHEDULE=$2; shift 2;;
     --web)      WEB=$2; shift 2;;
+    --watchdog) WATCHDOG=$2; shift 2;;
     --branch)   BRANCH=$2; shift 2;;
     --local)    LOCAL=$2; shift 2;;
     --no-system) NOSYSTEM=1; shift;;
-    -h|--help)  sed -n '2,26p' "$0"; exit 0;;
+    -h|--help)  sed -n '2,28p' "$0"; exit 0;;
     *) echo "Opzione sconosciuta: $1 (usa --help)"; exit 1;;
   esac
 done
 case "$PACCO" in 3s-liion|2s-lifepo4) ;; *) echo "--pacco: 3s-liion oppure 2s-lifepo4"; exit 1;; esac
 case "$SCHEDULE" in on|off) ;; *) echo "--schedule: on oppure off"; exit 1;; esac
 case "$WEB" in on|off) ;; *) echo "--web: on oppure off"; exit 1;; esac
+case "$WATCHDOG" in ""|off|prova|on) ;; *) echo "--watchdog: off, prova oppure on"; exit 1;; esac
 
 BASE="https://raw.githubusercontent.com/$REPO/$BRANCH/src/rpi-bookworm"
 STAMP=$(date +%Y%m%d-%H%M)
@@ -115,6 +120,9 @@ fetch stato_stazione.sh       /usr/local/sbin/stato_stazione.sh   755
 fetch bme280_log.py           /usr/local/sbin/bme280_log.py       755
 fetch ds3231_log.sh           /usr/local/sbin/ds3231_log.sh       755
 fetch ogn-boot-setup.service  /etc/systemd/system/ogn-boot-setup.service 644
+if [ -n "$WATCHDOG" ] && [ "$WATCHDOG" != off ]; then
+  fetch ogn-usb-watchdog.sh     /usr/local/sbin/ogn-usb-watchdog.sh 755
+fi
 if [ "$WEB" = on ]; then
   fetch stato_web.py            /usr/local/sbin/stato_web.py        755
   fetch ogn-stato-web.service   /etc/systemd/system/ogn-stato-web.service 644
@@ -134,6 +142,9 @@ if [ -f "$DEF" ]; then
 else
   printf 'SCHEDULE=%s\nOGN_PACCO=%s\n' "$SCHEDULE" "$PACCO" > "$DEF"; info "creato $DEF (SCHEDULE=$SCHEDULE, OGN_PACCO=$PACCO)"
 fi
+if [ -n "$WATCHDOG" ]; then
+  sed -i '/^WATCHDOG_USB=/d' "$DEF"; echo "WATCHDOG_USB=$WATCHDOG" >> "$DEF"; info "WATCHDOG_USB=$WATCHDOG in $DEF"
+fi
 
 # Cron e rotazione dei log
 mkdir -p "$DESTDIR/etc/cron.d" "$DESTDIR/etc/logrotate.d"
@@ -146,6 +157,7 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 */10 * * * * root /usr/bin/python3 /usr/local/sbin/monitor_batteria.py --pacco $PACCO --csv >> /var/log/batteria.csv 2>/dev/null
 */10 * * * * root /usr/bin/python3 /usr/local/sbin/monitor_batteria.py --addr 0x41 --carica --csv >> /var/log/carica.csv 2>/dev/null
 EOF
+[ -n "$WATCHDOG" ] && [ "$WATCHDOG" != off ] && echo '*/5 * * * * root /usr/local/sbin/ogn-usb-watchdog.sh' >> "$DESTDIR/etc/cron.d/ogn-station"
 [ "$WEB" = on ] && echo '*/10 * * * * root nice -n 10 /usr/bin/python3 /usr/local/sbin/stato_web.py >/dev/null 2>&1' >> "$DESTDIR/etc/cron.d/ogn-station"
 chmod 644 "$DESTDIR/etc/cron.d/ogn-station"; info "$DESTDIR/etc/cron.d/ogn-station"
 cat > "$DESTDIR/etc/logrotate.d/ogn-station" <<'EOF'
