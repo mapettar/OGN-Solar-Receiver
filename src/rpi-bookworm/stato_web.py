@@ -44,7 +44,8 @@ a{color:var(--mut)}
 
 def esegui():
     try:
-        p = subprocess.run(shlex.split(CMD), capture_output=True, text=True, timeout=90)
+        env = dict(os.environ, PATH=os.environ.get("PATH", "/usr/bin:/bin") + ":/usr/local/sbin:/usr/sbin:/sbin")
+        p = subprocess.run(shlex.split(CMD), capture_output=True, text=True, timeout=90, env=env)
         return p.stdout or p.stderr or "(nessun output)"
     except Exception as e:  # noqa: BLE001 - la pagina deve comunque uscire
         return "STATO STAZIONE - errore\n\n== Verdetto ==\n  [!!] impossibile eseguire stato: %s\n" % e

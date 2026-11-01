@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.9 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.10 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,7 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.10: PATH completo (i2cget sta in /usr/sbin, che il cron non ha): la pagina web mostrava "i2cget non installato".
 # v1.9: nella sezione Ricevitore: riavvii automatici per la chiavetta (ogn-usb-watchdog.sh) e prove di oggi.
 # v1.8: modalita' "banco di prova": con SCHEDULE diverso da on e DS3231 assente (Pi di prova senza ATtiny)
 #       le voci di orologio, avvio e spegnimento diventano informative e non rendono rosso il verdetto.
@@ -20,6 +21,7 @@
 # v1.6: sezione "Carica" se c'e' il secondo INA219 (0x41) in serie tra caricabatterie e pacco:
 #       tensione, corrente e potenza di carica, energia in ingresso e consumo di oggi.
 
+export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin"
 PROBLEMI=0
 # Impostazioni della stazione (profilo pacco, SCHEDULE): create da install.sh
 [ -f /etc/default/ogn-boot-setup ] && . /etc/default/ogn-boot-setup

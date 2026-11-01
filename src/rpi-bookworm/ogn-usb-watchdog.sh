@@ -12,6 +12,7 @@
 # WATCHDOG_MAX riavvii al giorno. Ogni decisione e' una riga in ogn-eventi.log.
 # Variabili per le prove: LSUSB_CMD, UNITA_RF, EVENTI, STATODIR, ORA_UTC (HHMM), SHUTDOWN_HHMM, UPTIME_S, REBOOT_CMD.
 
+export PATH="$PATH:/usr/local/sbin:/usr/sbin:/sbin"   # il cron ha un PATH ridotto
 [ -f /etc/default/ogn-boot-setup ] && . /etc/default/ogn-boot-setup
 MODO=${WATCHDOG_USB:-off}
 [ "$MODO" = "off" ] && exit 0
