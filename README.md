@@ -52,7 +52,7 @@ sudo bash install.sh --pacco 3s-liion --schedule on
 sudo reboot
 ```
 
-`install.sh` **non è ancora stato provato su una SD nuova**: è stato verificato solo a secco (`--no-system`). Non installa Tailscale e non scrive ReceiverName o chiavi.
+`install.sh` è stato provato il 31 ott 2026 su una **Raspberry Pi Zero 2 W con una SD nuova da 8 GB** (Bookworm, rtlsdr-ogn già installato) ed è andato a buon fine; sulla Pi 3A+ della stazione gli script sono stati messi a mano. Non installa rtlsdr-ogn, né Tailscale, e non scrive il nome del ricevitore o chiavi.
 
 ## Il comando `stato`
 
