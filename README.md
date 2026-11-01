@@ -56,7 +56,7 @@ sudo reboot
 
 ## Il comando `stato`
 
-Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, carica (se c'è il secondo INA219), umidità della scatola, disco.
+Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo con `[OK]` e `[!!]` e un verdetto: avvio all'ora giusta, orologio DS3231, spegnimento di ieri e avvio di oggi, servizi OGN, **chiavetta RTL-SDR, tentativi falliti e CPU di `ogn-rf`, rete verso il server APRS** (un `ogn-rf` in attesa non basta a dire che riceve), sottovoltaggi, batteria, carica (se c'è il secondo INA219), umidità della scatola, disco. Su una Pi di prova senza DS3231 e con `SCHEDULE=off` entra in **modalità banco di prova**: orologio, avvio e spegnimento diventano informativi e il verdetto riguarda solo chiavetta, servizi e rete.
 
 ### Pagina di stato (opzionale)
 

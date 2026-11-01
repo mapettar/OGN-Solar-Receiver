@@ -207,7 +207,7 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 | Ricevitore | chiavetta in `lsusb`, errori USB nel kernel, tentativi falliti di `ogn-rf` (**in corso** oppure **episodio concluso** con l'ora dell'ultimo), CPU di `ogn-rf` sul momento (misurata sulla Zero 2W: da 40% a oltre 100% quando lavora; sotto 15% è sospetto), rete verso il server APRS (dice solo che la rete c'è, non che si riceve) | sezione 11 |
 | Alimentazione e temperatura | `get_throttled` (sottovoltaggio, limitazioni) | alimentazione della Pi: cavi, Mini560 |
 | Batteria | INA219: tensione, corrente, potenza, giudizio | pacco scarico: controlla pannello e carica |
-| Carica (secondo INA219) | tensione lato pacco, corrente e potenza di carica, energia in ingresso e consumo di oggi | corrente negativa = INA219 montato al contrario; nessun dato = cron non attivo o INA219 non montato |
+| Carica (secondo INA219) | tensione lato pacco, corrente e potenza di carica, **se sta caricando (corrente positiva), è ferma o scarica**, ultime 6 letture, energia in ingresso e consumo di oggi | corrente negativa = INA219 montato al contrario; nessun dato = cron non attivo o INA219 non montato |
 | Scatola (BME280) | temperatura, umidità, margine dal punto di rugiada | umidità ≥ 80 % o margine < 3 °C: rischio condensa |
 | Disco | uso della SD | spazio quasi pieno |
 

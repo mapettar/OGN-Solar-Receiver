@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.7 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.8 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,9 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.8: modalita' "banco di prova": con SCHEDULE diverso da on e DS3231 assente (Pi di prova senza ATtiny)
+#       le voci di orologio, avvio e spegnimento diventano informative e non rendono rosso il verdetto.
+#       Sezione Carica: dice se il pacco sta caricando (corrente positiva), e' fermo o sta scaricando, con le ultime letture.
 # v1.7: sezione "Rete" con indirizzo locale e indirizzo Tailscale (per ritrovare la stazione).
 # v1.6: sezione "Carica" se c'e' il secondo INA219 (0x41) in serie tra caricabatterie e pacco:
 #       tensione, corrente e potenza di carica, energia in ingresso e consumo di oggi.
@@ -22,6 +25,13 @@ PROBLEMI=0
 ok()   { printf '  [OK] %s\n' "$*"; }
 warn() { printf '  [!!] %s\n' "$*"; PROBLEMI=$((PROBLEMI + 1)); }
 info() { printf '       %s\n' "$*"; }
+# Banco di prova: SCHEDULE non attivo e nessun DS3231 su 0x68 (Pi senza la scheda della stazione)
+BANCO=0
+if [ "${SCHEDULE:-off}" != "on" ]; then
+  modprobe i2c-dev 2>/dev/null
+  if ! { command -v i2cget >/dev/null 2>&1 && i2cget -y 1 0x68 0x00 >/dev/null 2>&1; }; then BANCO=1; fi
+fi
+warnb() { if [ "$BANCO" -eq 1 ]; then printf '       (banco di prova) %s\n' "$*"; else warn "$*"; fi; }
 titolo() { printf '\n== %s ==\n' "$*"; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Lanciare con sudo: sudo bash $0"; exit 1; }
@@ -33,6 +43,7 @@ DSLOG=${DSLOG:-/boot/ds3231.log}; [ -f "$DSLOG" ] || DSLOG=/var/log/ds3231.log
 BMELOG=${BMELOG:-/boot/bme280.log}
 
 echo "STATO STAZIONE $(hostname) - $(date '+%F %T') (UTC $(date -u +%H:%M:%S))"
+[ "$BANCO" -eq 1 ] && echo "  Modalita' banco di prova: senza DS3231 e con SCHEDULE non attivo, orologio, avvio e spegnimento sono solo informativi."
 
 # --- 1. Avvio --------------------------------------------------------------
 titolo "Avvio"
@@ -47,7 +58,7 @@ if [[ "$AVVIO_LOC" > "09:59" && "$AVVIO_LOC" < "10:11" ]]; then
 elif [[ "$AVVIO_UTC" > "07:59" && "$AVVIO_UTC" < "08:11" ]]; then
   ok "partita alle 08:00 UTC (sistema con script UTC)"
 else
-  warn "avvio fuori orario (atteso 10:00 locali o 08:00 UTC): riavvio manuale o ATtiny in recupero?"
+  warnb "avvio fuori orario (atteso 10:00 locali o 08:00 UTC): riavvio manuale o ATtiny in recupero?"
 fi
 
 # --- 1b. Rete (indirizzi per raggiungere la stazione) ----------------------
@@ -83,10 +94,10 @@ if command -v i2cget >/dev/null 2>&1; then
       warn "ora non allineata (differenza ${D}s)"
     fi
   else
-    warn "DS3231 non risponde su 0x68"
+    warnb "DS3231 non risponde su 0x68"
   fi
 else
-  warn "i2cget non installato"
+  warnb "i2cget non installato"
 fi
 if [ -f "$DSLOG" ]; then
   PRIMA=$(grep -a "^$OGGI" "$DSLOG" | head -1)
@@ -97,7 +108,7 @@ if [ -f "$DSLOG" ]; then
   N_OSF=$(grep -a "^$OGGI" "$DSLOG" | grep -ac "st=0x[89a-f]")
   N_ERR=$(grep -a "^$OGGI" "$DSLOG" | grep -ac "Read failed")
   info "righe di oggi con OSF acceso: $N_OSF  -  letture I2C fallite: $N_ERR"
-  [ "$N_ERR" -gt 0 ] && warn "$N_ERR letture I2C fallite oggi"
+  [ "$N_ERR" -gt 0 ] && warnb "$N_ERR letture I2C fallite oggi"
 else
   info "nessun log del DS3231 trovato"
 fi
@@ -110,12 +121,12 @@ titolo "Ciclo spegnimento / avvio"
 if [ -f "$EVENTI" ]; then
   tail -n 6 "$EVENTI" | sed 's/^/       /'
   if grep -a "^$IERI" "$EVENTI" | grep -aq shutdown; then ok "spegnimento di ieri sera registrato"
-  else warn "nessuno spegnimento registrato ieri ($IERI): taglio brusco dell'ATtiny?"; fi
+  else warnb "nessuno spegnimento registrato ieri ($IERI): taglio brusco dell'ATtiny?"; fi
   if grep -a "^$OGGI" "$EVENTI" | grep -aq avvio; then ok "avvio di oggi registrato"
-  else warn "nessun avvio registrato oggi"; fi
+  else warnb "nessun avvio registrato oggi"; fi
   grep -a "^$OGGI" "$EVENTI" | grep -aq "NTP_OK=0" && warn "avvio con NTP_OK=0 (DS3231 non riscritto)"
 else
-  warn "file $EVENTI non trovato"
+  warnb "file $EVENTI non trovato"
 fi
 
 # --- 4. Servizi OGN --------------------------------------------------------
@@ -240,7 +251,13 @@ if [ -n "$MB" ]; then
     if [ -n "$MAC" ] && awk -v m="$MAC" 'BEGIN{exit !(m < -50)}'; then
       warn "corrente di carica negativa ($MAC mA): INA219 al contrario o energia che esce dal pacco verso il caricabatterie"
     fi
+    if [ -n "$MAC" ]; then
+      if awk -v m="$MAC" 'BEGIN{exit !(m > 50)}'; then ok "in carica: entrano $MAC mA nel pacco (segno positivo)"
+      elif awk -v m="$MAC" 'BEGIN{exit !(m >= -50)}'; then info "carica ferma o quasi ($MAC mA): pacco pieno, oppure poca luce sul pannello"; fi
+    fi
     if [ -f "$CARICACSV" ] && grep -aq "^$OGGI" "$CARICACSV"; then
+      info "ultime letture (ora, tensione, corrente):"
+      grep -a "^$OGGI" "$CARICACSV" | tail -6 | awk -F, '{split($1,a," "); printf "         %s  %s V  %+d mA\n", substr(a[2],1,5), $2, $3}'
       IN=$(grep -a "^$OGGI" "$CARICACSV" | awk -F, '$4+0 > 0 {s += $4; if ($4 > m) m = $4; n++} END {printf "%.1f %.1f %d", s/6, m+0, n+0}')
       OUT=$(grep -a "^$OGGI" "$BATCSV" 2>/dev/null | awk -F, '$4+0 > 0 {s += $4} END {printf "%.1f", s/6}')
       info "oggi, a Pi accesa (campioni ogni 10 min): in ingresso ${IN%% *} Wh (massimo $(echo "$IN" | cut -d' ' -f2) W su $(echo "$IN" | cut -d' ' -f3) campioni con carica), consumo ${OUT:-0} Wh"
