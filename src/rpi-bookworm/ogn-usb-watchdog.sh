@@ -1,5 +1,5 @@
 #!/bin/bash
-# ogn-usb-watchdog.sh v1.0 - riavvia la Pi se la chiavetta RTL-SDR manca o ogn-rf non riesce ad aprirla.
+# ogn-usb-watchdog.sh v1.1 - riavvia la Pi se la chiavetta RTL-SDR manca o ogn-rf non riesce ad aprirla.
 # Si lancia da cron ogni 5 minuti (come root). Il 31 ott 2026 la chiavetta e' sparita da lsusb dopo
 # l'avvio delle 10:00 e un riavvio l'ha ripristinata: qui lo fa da solo, con dei limiti.
 #
@@ -52,7 +52,8 @@ if [ "$N" -ge "$MAX" ]; then
   [ ! -f "$STATODIR/limite-$OGGI" ] && { log "limite di $MAX riavvii al giorno raggiunto: non riavvio ($MOTIVO)"; : > "$STATODIR/limite-$OGGI"; }
   exit 0
 fi
-SH=${SHUTDOWN_HHMM:-$(crontab -l 2>/dev/null | grep -o '= "[0-9][0-9][0-9][0-9]"' | head -1 | tr -dc 0-9)}
+# l'ora dello spegnimento e' nelle righe di cron che contengono 'shutdown -h' (la riga --notte, 5 minuti prima, non conta)
+SH=${SHUTDOWN_HHMM:-$(crontab -l 2>/dev/null | grep 'shutdown -h' | grep -o '= "[0-9][0-9][0-9][0-9]"' | tr -dc '0-9\n' | sort | head -1)}
 if [ -n "$SH" ]; then
   A=${ORA_UTC:-$(date -u +%H%M)}
   m() { echo $(( 10#${1:0:2} * 60 + 10#${1:2:2} )); }
