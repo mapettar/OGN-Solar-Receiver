@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.10 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.11 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,7 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.11: distingue i riavvii della Pi e dei soli servizi del watchdog v1.2; con la chiavetta assente non scrive piu' "ora la chiavetta si apre".
 # v1.10: PATH completo (i2cget sta in /usr/sbin, che il cron non ha): la pagina web mostrava "i2cget non installato".
 # v1.9: nella sezione Ricevitore: riavvii automatici per la chiavetta (ogn-usb-watchdog.sh) e prove di oggi.
 # v1.8: modalita' "banco di prova": con SCHEDULE diverso da on e DS3231 assente (Pi di prova senza ATtiny)
@@ -142,10 +143,12 @@ done
 titolo "Ricevitore (chiavetta e server OGN)"
 UNITA_RF=${UNITA_RF:-rtlsdr-ogn}
 if [ -f "$EVENTI" ]; then
-  N_WD=$(grep -a "^$(date -u +%F)" "$EVENTI" | grep -ac "watchdog-usb riavvio")
+  N_WD=$(grep -a "^$(date -u +%F)" "$EVENTI" | grep -ac "watchdog-usb riavvio [0-9]")
+  N_WS=$(grep -a "^$(date -u +%F)" "$EVENTI" | grep -ac "watchdog-usb riavvio servizi")
   N_WDP=$(grep -a "^$(date -u +%F)" "$EVENTI" | grep -ac "watchdog-usb PROVA")
-  [ "$N_WD" -gt 0 ] && warn "oggi la Pi si e' riavviata $N_WD volte da sola perche' la chiavetta mancava (ogn-eventi.log, righe watchdog-usb)"
-  [ "$N_WDP" -gt 0 ] && info "watchdog in prova: oggi avrebbe riavviato $N_WDP volte (non ha riavviato)"
+  [ "$N_WD" -gt 0 ] && warn "oggi la Pi si e' riavviata $N_WD volte da sola per la chiavetta (ogn-eventi.log, righe watchdog-usb)"
+  [ "$N_WS" -gt 0 ] && warn "oggi il watchdog ha riavviato $N_WS volte i servizi OGN perche' ogn-rf era inattivo (ogn-eventi.log, righe watchdog-usb)"
+  [ "$N_WDP" -gt 0 ] && info "watchdog in prova: oggi sarebbe intervenuto $N_WDP volte (non e' intervenuto)"
 fi
 if command -v lsusb >/dev/null 2>&1; then
   SDR=$(lsusb 2>/dev/null | grep -iE 'ID 0bda:28(32|38)' | head -1)
@@ -172,7 +175,11 @@ if command -v journalctl >/dev/null 2>&1; then
     if [ $(( $(date +%s) - ULT )) -lt 90 ]; then
       warn "ogn-rf NON riesce ad aprire la chiavetta: ultimo tentativo fallito alle $QUANDO ($N_APRI dall'avvio)"
     elif [ "$N_APRI" -ge 6 ]; then
-      warn "episodio concluso: ogn-rf ha avuto $N_APRI tentativi falliti dall'avvio, l'ultimo alle $QUANDO (ora la chiavetta si apre)"
+      if [ -n "${SDR:-}" ]; then
+        warn "episodio concluso: ogn-rf ha avuto $N_APRI tentativi falliti dall'avvio, l'ultimo alle $QUANDO (ora la chiavetta e' presente)"
+      else
+        warn "ogn-rf ha avuto $N_APRI tentativi falliti dall'avvio, l'ultimo alle $QUANDO, e la chiavetta non e' in lsusb: l'episodio NON e' concluso"
+      fi
     else
       info "ogn-rf: $N_APRI tentativi falliti dall'avvio (ultimo alle $QUANDO): normale all'accensione"
     fi

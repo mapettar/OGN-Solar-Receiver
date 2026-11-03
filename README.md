@@ -60,7 +60,7 @@ Ogni mattina, dopo l'avvio delle 10:00, il comando `stato` stampa un riepilogo c
 
 ### Riavvio automatico se la chiavetta manca (opzionale)
 
-`ogn-usb-watchdog.sh` (cron ogni 5 minuti, `install.sh --watchdog prova|on`) riavvia la Pi se la chiavetta RTL-SDR non compare in `lsusb` o se `ogn-rf` non riesce ad aprirla, per almeno due controlli consecutivi. Limiti: 4 minuti dopo l'avvio, al massimo 2 riavvii al giorno (`WATCHDOG_MAX`), mai nei 45 minuti prima dello spegnimento serale. Con `WATCHDOG_USB=prova` in `/etc/default/ogn-boot-setup` scrive in `ogn-eventi.log` cosa farebbe senza riavviare. `stato` conta i riavvii di oggi. Non cura la causa (ancora sconosciuta): serve a non perdere il giorno.
+`ogn-usb-watchdog.sh` (cron ogni 5 minuti, `install.sh --watchdog prova|on`) interviene a gradini, dopo almeno due controlli consecutivi: se la chiavetta RTL-SDR manca da `lsusb` o `ogn-rf` non riesce ad aprirla, **riavvia la Pi**; se la chiavetta c'è ma `ogn-rf` è quasi inattivo (CPU sotto il 5%), **riavvia solo `rtlsdr-ogn` e `ogn-decode`** (3 volte al giorno, poi passa al riavvio della Pi). Limiti: 4 minuti dall'avvio (6 per il controllo della CPU), al massimo 2 riavvii della Pi al giorno (`WATCHDOG_MAX`), mai nei 45 minuti prima dello spegnimento serale. Con `WATCHDOG_USB=prova` in `/etc/default/ogn-boot-setup` scrive in `ogn-eventi.log` cosa farebbe senza riavviare. `stato` conta i riavvii di oggi. Non cura la causa (ancora sconosciuta): serve a non perdere il giorno.
 
 ### Pagina di stato (opzionale)
 
