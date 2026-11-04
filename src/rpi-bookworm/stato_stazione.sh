@@ -114,21 +114,21 @@ if [ -f "$DSLOG" ]; then
   N_ERR=$(grep -a "^$OGGI" "$DSLOG" | grep -ac "Read failed")
   info "righe di oggi con OSF acceso: $N_OSF  -  letture I2C fallite: $N_ERR"
   [ "$N_ERR" -gt 0 ] && warnb "$N_ERR letture I2C fallite oggi"
-  # Ora persa negli ultimi 3 giorni (scritta da ogn-boot-setup in ogn-eventi.log): la CR2032 non ha tenuto l'ora
-  if [ -f "$EVENTI" ]; then
-    PERSA=""
-    for g in 0 1 2; do
-      D=$(date -u -d "-$g day" +%F 2>/dev/null) || continue
-      PERSA="$PERSA$(grep -a "^$D .*DS3231 ora persa" "$EVENTI")"$'\n'
-    done
-    N_PERSA=$(printf '%s' "$PERSA" | grep -ac "ora persa")
-    if [ "${N_PERSA:-0}" -gt 0 ]; then
-      ULT_PERSA=$(printf '%s' "$PERSA" | grep -a "ora persa" | tail -1 | cut -c1-19)
-      warnb "il DS3231 ha perso l'ora $N_PERSA volte negli ultimi 3 giorni (ultima: $ULT_PERSA UTC): la CR2032 non ha tenuto l'ora quando e' mancata l'alimentazione principale"
-    fi
-  fi
 else
   info "nessun log del DS3231 trovato"
+fi
+# Ora persa negli ultimi 3 giorni (scritta da ogn-boot-setup in ogn-eventi.log): la CR2032 non ha tenuto l'ora
+if [ -f "$EVENTI" ]; then
+  PERSA=""
+  for g in 0 1 2; do
+    GG=$(date -u -d "-$g day" +%F 2>/dev/null) || continue
+    PERSA="$PERSA$(grep -a "^$GG .*DS3231 ora persa" "$EVENTI")"$'\n'
+  done
+  N_PERSA=$(printf '%s' "$PERSA" | grep -ac "ora persa")
+  if [ "${N_PERSA:-0}" -gt 0 ]; then
+    ULT_PERSA=$(printf '%s' "$PERSA" | grep -a "ora persa" | tail -1 | cut -c1-19)
+    warnb "il DS3231 ha perso l'ora $N_PERSA volte negli ultimi 3 giorni (ultima: $ULT_PERSA UTC): la CR2032 non ha tenuto l'ora quando e' mancata l'alimentazione principale"
+  fi
 fi
 if command -v ntpq >/dev/null 2>&1 && ntpq -pn 2>/dev/null | grep -q '^\*'; then ok "NTP sincronizzato"
 elif [ -e /run/systemd/timesync/synchronized ]; then ok "NTP sincronizzato (timesyncd)"
