@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.11 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.12 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,7 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.12: segnala gli eventi "DS3231 ora persa" degli ultimi 3 giorni (prima comparivano solo nell'elenco, senza [!!]).
 # v1.11: distingue i riavvii della Pi e dei soli servizi del watchdog v1.2; con la chiavetta assente non scrive piu' "ora la chiavetta si apre".
 # v1.10: PATH completo (i2cget sta in /usr/sbin, che il cron non ha): la pagina web mostrava "i2cget non installato".
 # v1.9: nella sezione Ricevitore: riavvii automatici per la chiavetta (ogn-usb-watchdog.sh) e prove di oggi.
@@ -113,6 +114,19 @@ if [ -f "$DSLOG" ]; then
   N_ERR=$(grep -a "^$OGGI" "$DSLOG" | grep -ac "Read failed")
   info "righe di oggi con OSF acceso: $N_OSF  -  letture I2C fallite: $N_ERR"
   [ "$N_ERR" -gt 0 ] && warnb "$N_ERR letture I2C fallite oggi"
+  # Ora persa negli ultimi 3 giorni (scritta da ogn-boot-setup in ogn-eventi.log): la CR2032 non ha tenuto l'ora
+  if [ -f "$EVENTI" ]; then
+    PERSA=""
+    for g in 0 1 2; do
+      D=$(date -u -d "-$g day" +%F 2>/dev/null) || continue
+      PERSA="$PERSA$(grep -a "^$D .*DS3231 ora persa" "$EVENTI")"$'\n'
+    done
+    N_PERSA=$(printf '%s' "$PERSA" | grep -ac "ora persa")
+    if [ "${N_PERSA:-0}" -gt 0 ]; then
+      ULT_PERSA=$(printf '%s' "$PERSA" | grep -a "ora persa" | tail -1 | cut -c1-19)
+      warnb "il DS3231 ha perso l'ora $N_PERSA volte negli ultimi 3 giorni (ultima: $ULT_PERSA UTC): la CR2032 non ha tenuto l'ora quando e' mancata l'alimentazione principale"
+    fi
+  fi
 else
   info "nessun log del DS3231 trovato"
 fi
