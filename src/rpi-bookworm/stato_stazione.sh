@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.12.1 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.13 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -12,6 +12,7 @@
 #       - CPU di ogn-rf misurata sul momento (1 s) e non come media dall'avvio;
 #       - il collegamento APRS dice solo che la rete e il server rispondono, non che si riceve;
 #       - una prima lettura fallita del DS3231 non conta piu' come "ora presente".
+# v1.13: il limite termico morbido (0x80000, 60 C) e' solo informativo; rosso per sottovoltaggio, limitazione vera o CPU sopra 70 C.
 # v1.12: segnala gli eventi "DS3231 ora persa" degli ultimi 3 giorni (prima comparivano solo nell'elenco, senza [!!]).
 # v1.11: distingue i riavvii della Pi e dei soli servizi del watchdog v1.2; con la chiavetta assente non scrive piu' "ora la chiavetta si apre".
 # v1.10: PATH completo (i2cget sta in /usr/sbin, che il cron non ha): la pagina web mostrava "i2cget non installato".
@@ -228,15 +229,22 @@ fi
 titolo "Alimentazione e temperatura"
 if command -v vcgencmd >/dev/null 2>&1; then
   T=$(vcgencmd get_throttled 2>/dev/null | cut -d= -f2)
+  TC=$(vcgencmd measure_temp 2>/dev/null | grep -o '[0-9]*\.[0-9]*' | head -1); TC=${TC%.*}
   if [ "$T" = "0x0" ]; then ok "nessun sottovoltaggio o limitazione dall'avvio"
   else
     V=$(( T ))
-    [ $(( V & 0x1 )) -ne 0 ] && warn "sottovoltaggio IN CORSO"
-    [ $(( V & 0x4 )) -ne 0 ] && warn "CPU limitata IN CORSO"
-    [ $(( V & 0x10000 )) -ne 0 ] && warn "c'e' stato sottovoltaggio dall'avvio ($T)"
-    [ $(( V & 0x40000 )) -ne 0 ] && warn "c'e' stata limitazione della CPU dall'avvio ($T)"
-    [ $(( V & 0x80000 )) -ne 0 ] && warn "limite termico raggiunto dall'avvio ($T)"
+    GRAVI=0
+    [ $(( V & 0x1 )) -ne 0 ] && { warn "sottovoltaggio IN CORSO"; GRAVI=1; }
+    [ $(( V & 0x4 )) -ne 0 ] && { warn "CPU limitata IN CORSO"; GRAVI=1; }
+    [ $(( V & 0x10000 )) -ne 0 ] && { warn "c'e' stato sottovoltaggio dall'avvio ($T)"; GRAVI=1; }
+    [ $(( V & 0x40000 )) -ne 0 ] && { warn "c'e' stata limitazione della CPU dall'avvio ($T)"; GRAVI=1; }
+    if [ $(( V & 0x80000 )) -ne 0 ] && [ "$GRAVI" -eq 0 ]; then
+      ok "nessun sottovoltaggio; la CPU ha toccato il limite termico morbido di circa 60 C (normale al sole, la frequenza cala un poco) ($T)"
+    elif [ $(( V & 0x80000 )) -ne 0 ]; then
+      info "la CPU ha toccato anche il limite termico morbido di circa 60 C"
+    fi
   fi
+  if [ -n "${TC:-}" ] && [ "$TC" -ge 70 ]; then warn "CPU a ${TC} C: sopra 70 C, controllare ventilazione e ombra"; fi
   info "CPU: $(vcgencmd measure_temp 2>/dev/null)"
 fi
 
