@@ -1,5 +1,5 @@
 #!/bin/bash
-# stato_stazione.sh v1.12 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.12.1 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
@@ -120,7 +120,7 @@ fi
 # Ora persa negli ultimi 3 giorni (scritta da ogn-boot-setup in ogn-eventi.log): la CR2032 non ha tenuto l'ora
 if [ -f "$EVENTI" ]; then
   PERSA=""
-  for g in 0 1 2; do
+  for g in 2 1 0; do   # dal giorno piu' vecchio a oggi: l'ultima riga e' l'evento piu' recente
     GG=$(date -u -d "-$g day" +%F 2>/dev/null) || continue
     PERSA="$PERSA$(grep -a "^$GG .*DS3231 ora persa" "$EVENTI")"$'\n'
   done
