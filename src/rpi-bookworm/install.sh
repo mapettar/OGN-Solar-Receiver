@@ -1,7 +1,8 @@
 #!/bin/bash
-# install.sh v1.5 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.6 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
+# v1.6: opzione --hw-watchdog on|off: watchdog hardware del SoC (systemd lo alimenta; se la Pi si congela si riavvia da sola in ~15 s) e journal persistente.
 # v1.5: opzione --watchdog off|prova|on: riavvio automatico se la chiavetta RTL-SDR manca (ogn-usb-watchdog.sh, cron ogni 5 min).
 # v1.4: opzione --web on: pagina di stato sulla porta 8090 (stato_web.py + ogn-stato-web.service), solo rete locale/Tailscale.
 # v1.3: cron per il secondo INA219 (0x41, carica) in /var/log/carica.csv; se non e' montato non scrive nulla.
@@ -19,6 +20,7 @@
 #                                 off = la Pi non si spegne da sola (default, sicuro per i banchi di prova)
 #   --web on|off                  on = pagina di stato HTML sulla porta 8090, aggiornata ogni 10 minuti (default off)
 #   --watchdog off|prova|on       riavvia la Pi se la chiavetta manca: prova = solo log, on = riavvia davvero (non cambia se omessa)
+#   --hw-watchdog on|off          on = riavvio automatico se tutto il sistema si blocca (watchdog del chip, 15 s); off = lo toglie (non cambia se omessa)
 #   --branch NOME                 ramo del repository (default rpi-bookworm-3a-plus)
 #   --local CARTELLA              usa i file di una copia locale invece di scaricarli
 #   --no-system                   non tocca apt, systemctl, timezone, config.txt (per i test)
@@ -30,6 +32,7 @@ PACCO=3s-liion
 SCHEDULE=off
 WEB=off
 WATCHDOG=""
+HWWD=""
 LOCAL=""
 NOSYSTEM=0
 DESTDIR=${DESTDIR:-}
@@ -41,10 +44,11 @@ while [ $# -gt 0 ]; do
     --schedule) SCHEDULE=$2; shift 2;;
     --web)      WEB=$2; shift 2;;
     --watchdog) WATCHDOG=$2; shift 2;;
+    --hw-watchdog) HWWD=$2; shift 2;;
     --branch)   BRANCH=$2; shift 2;;
     --local)    LOCAL=$2; shift 2;;
     --no-system) NOSYSTEM=1; shift;;
-    -h|--help)  sed -n '2,28p' "$0"; exit 0;;
+    -h|--help)  sed -n '2,27p' "$0"; exit 0;;
     *) echo "Opzione sconosciuta: $1 (usa --help)"; exit 1;;
   esac
 done
@@ -52,6 +56,7 @@ case "$PACCO" in 3s-liion|2s-lifepo4) ;; *) echo "--pacco: 3s-liion oppure 2s-li
 case "$SCHEDULE" in on|off) ;; *) echo "--schedule: on oppure off"; exit 1;; esac
 case "$WEB" in on|off) ;; *) echo "--web: on oppure off"; exit 1;; esac
 case "$WATCHDOG" in ""|off|prova|on) ;; *) echo "--watchdog: off, prova oppure on"; exit 1;; esac
+case "$HWWD" in ""|on|off) ;; *) echo "--hw-watchdog: on oppure off"; exit 1;; esac
 
 BASE="https://raw.githubusercontent.com/$REPO/$BRANCH/src/rpi-bookworm"
 STAMP=$(date +%Y%m%d-%H%M)
@@ -146,6 +151,25 @@ if [ -n "$WATCHDOG" ]; then
   sed -i '/^WATCHDOG_USB=/d' "$DEF"; echo "WATCHDOG_USB=$WATCHDOG" >> "$DEF"; info "WATCHDOG_USB=$WATCHDOG in $DEF"
 fi
 
+# Journal persistente (serve a capire dopo un blocco cosa e' successo) e watchdog hardware
+say "Journal e watchdog hardware"
+mkdir -p "$DESTDIR/etc/systemd/journald.conf.d"
+printf '[Journal]\nStorage=persistent\nSystemMaxUse=50M\n' > "$DESTDIR/etc/systemd/journald.conf.d/ogn-persistent.conf"
+mkdir -p "$DESTDIR/var/log/journal"
+info "journal persistente (max 50 MB): $DESTDIR/etc/systemd/journald.conf.d/ogn-persistent.conf"
+WDF="$DESTDIR/etc/systemd/system.conf.d/ogn-watchdog.conf"
+case "$HWWD" in
+  on)
+    mkdir -p "$(dirname "$WDF")"
+    printf '[Manager]\nRuntimeWatchdogSec=15\nRebootWatchdogSec=2min\n' > "$WDF"
+    info "watchdog hardware attivo (15 s): $WDF"
+    [ "$NOSYSTEM" -eq 1 ] || [ -e /dev/watchdog ] || warn "/dev/watchdog non trovato: il driver del chip non e' caricato, il watchdog non funzionera'";;
+  off)
+    rm -f "$WDF"; info "watchdog hardware tolto";;
+  *)
+    [ -f "$WDF" ] && info "watchdog hardware: gia' configurato, lo lascio com'e'" || info "watchdog hardware: non attivo (usa --hw-watchdog on)";;
+esac
+
 # Cron e rotazione dei log
 mkdir -p "$DESTDIR/etc/cron.d" "$DESTDIR/etc/logrotate.d"
 cat > "$DESTDIR/etc/cron.d/ogn-station" <<EOF
@@ -175,6 +199,8 @@ info "$DESTDIR/etc/logrotate.d/ogn-station"
 if [ "$NOSYSTEM" -eq 0 ]; then
   say "Servizio"
   systemctl daemon-reload
+  systemctl restart systemd-journald && info "journal persistente attivo"
+  systemctl daemon-reexec && info "systemd riletto (il watchdog hardware, se attivo, parte subito)"
   systemctl enable ogn-boot-setup.service
   info "ogn-boot-setup abilitato (parte ad ogni avvio)"
   if [ "$WEB" = on ]; then
