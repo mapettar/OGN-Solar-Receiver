@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-# ogn_sim.py v1.0 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# ogn_sim.py v1.1 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# v1.1: la strada predefinita via ppp0 la mette questo servizio (pppd con defaultroute non sostituisce una strada
+#       gia' presente, come quella del Wi-Fi): metrica 700 se il Wi-Fi da' internet, 50 se non lo da'.
 # Servizio systemd (ogn-sim.service). Fa queste cose, in ordine:
 #   1) controlla se il modulo risponde ad AT sulla seriale; se no, gli da' l'impulso su PWRKEY (GPIO4, serve il
 #      ponticello PWR-P7 sulla HAT) e riprova (al massimo due impulsi: l'impulso INVERTE lo stato del modulo);
@@ -29,7 +31,7 @@ except ImportError:
     sys.stderr.write("ogn_sim: manca python3-serial (sudo apt install python3-serial)\n")
     sys.exit(2)
 
-VERSIONE = "1.0"
+VERSIONE = "1.1"
 CONF = os.environ.get("OGN_SIM_CONF", "/etc/default/ogn-sim")
 DEV = os.environ.get("OGN_SIM_DEV", "/dev/serial0")
 PPPD = os.environ.get("PPPD_CMD", "pppd")
@@ -293,6 +295,7 @@ class Servizio:
         self.st = {"versione": VERSIONE, "fase": "avvio", "ppp_riavvii": 0, "modulo_riavvii": 0}
         self.dns_salvato = False
         self.wifi = False
+        self.metrica_strada = None
         self.cont_prec = None
         self.terminato = False
         os.makedirs(STATEDIR, exist_ok=True)
@@ -386,13 +389,13 @@ class Servizio:
         self.ppp = None
         self.ppp_da = None
         self.cont_prec = None
+        self.metrica_strada = None
         self.dns_ripristina()
         self.st["fase"] = "ppp spento"
 
     def ppp_avvia(self, metrica):
         self.modem.chiudi()
-        cmd = [PPPD, DEV, str(self.baud), "call", "simbase", "nodetach",
-               "defaultroute", "defaultroute-metric", str(metrica)]
+        cmd = [PPPD, DEV, str(self.baud), "call", "simbase", "nodetach"]
         log = open(os.path.join(STATEDIR, "pppd.log"), "ab")
         self.ppp = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT, start_new_session=True)
         fine = time.time() + 90
@@ -408,6 +411,18 @@ class Servizio:
         evento("pppd senza indirizzo dopo 90 s")
         self.ppp_ferma("nessun indirizzo")
         return False
+
+    def imposta_strada(self, metrica):
+        """Strada predefinita via ppp0 con la metrica voluta (sparisce da sola con l'interfaccia)."""
+        if self.metrica_strada == metrica:
+            return
+        rc, out = esegui([IPCMD, "route", "replace", "default", "dev", "ppp0", "metric", str(metrica)], 5)
+        if rc == 0:
+            self.metrica_strada = metrica
+            evento("strada predefinita via ppp0, metrica %s (%s)" %
+                   (metrica, "SIM davanti al Wi-Fi" if metrica < 100 else "Wi-Fi davanti, SIM di riserva"))
+        else:
+            evento("strada via ppp0 non impostata: %s" % out.strip()[:120])
 
     def sale(self, metrica):
         """Modulo -> rete -> PPP. Ritorna True se il PPP e' su e passa traffico."""
@@ -436,7 +451,9 @@ class Servizio:
             evento("PPP su (%s) ma il ping non passa" % indirizzo_iface("ppp0"))
             self.ppp_ferma("ping non passa")
             return False
-        evento("PPP su, indirizzo %s, metrica %s" % (indirizzo_iface("ppp0"), metrica))
+        self.metrica_strada = None
+        self.imposta_strada(metrica)
+        evento("PPP su, indirizzo %s" % indirizzo_iface("ppp0"))
         self.st["fase"] = "ppp su"
         self.st["ultimo_ping_ok"] = int(time.time())
         self.ultima_prova = time.time()
@@ -462,7 +479,7 @@ class Servizio:
         self.wifi = self.wifi_ok() if modo in ("auto", "always") else False
         self.st["wifi_ok"] = self.wifi
         if modo == "always":
-            return True, 700
+            return True, (700 if self.wifi else 50)
         if modo != "auto":
             return False, 700
         if self.wifi:
@@ -525,6 +542,8 @@ class Servizio:
                     self.dns_scrivi()
                 else:
                     self.dns_ripristina()
+                if self.ppp.poll() is None:
+                    self.imposta_strada(700 if self.wifi else 50)
             self.conta_dati()
         elif not serve:
             self.st["fase"] = "SIM non serve (Wi-Fi ok)" if self.cfg["SIM_MODE"] == "auto" else "spento"
