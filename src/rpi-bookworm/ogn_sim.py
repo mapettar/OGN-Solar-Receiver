@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-# ogn_sim.py v1.2 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# ogn_sim.py v1.3 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
 # v1.1: la strada predefinita via ppp0 la mette questo servizio (pppd con defaultroute non sostituisce una strada
 #       gia' presente, come quella del Wi-Fi): metrica 700 se il Wi-Fi da' internet, 50 se non lo da'.
+# v1.3: all'avvio il pin PWRKEY va al livello di riposo (polarita' alta confermata il 12 nov 2026: impulso alto 2 s accende e spegne).
 # v1.2: dopo la caduta di pppd (12 nov 2026: 'Serial link appears to be disconnected') il modulo restava in modalita' dati e
 #       ignorava i comandi AT: ora prova l'uscita con la sequenza +++ (pause di 1,2 s) e ATH, prima di pensare a PWRKEY.
 # Servizio systemd (ogn-sim.service). Fa queste cose, in ordine:
@@ -33,7 +34,7 @@ except ImportError:
     sys.stderr.write("ogn_sim: manca python3-serial (sudo apt install python3-serial)\n")
     sys.exit(2)
 
-VERSIONE = "1.2"
+VERSIONE = "1.3"
 CONF = os.environ.get("OGN_SIM_CONF", "/etc/default/ogn-sim")
 DEV = os.environ.get("OGN_SIM_DEV", "/dev/serial0")
 PPPD = os.environ.get("PPPD_CMD", "pppd")
@@ -179,6 +180,12 @@ def impulso_pwrkey(cfg):
     esegui([PINCTRL, "set", pin, "op", attivo])
     time.sleep(float(cfg["SIM_PWR_PULSE"]))
     esegui([PINCTRL, "set", pin, "op", riposo])
+
+
+def pwrkey_a_riposo(cfg):
+    """Porta il pin PWRKEY al livello di riposo (tasto non premuto): all'avvio la Pi lo lascia in ingresso con pull-up."""
+    riposo = "dl" if cfg["SIM_PWR_ACTIVE"] == "high" else "dh"
+    esegui([PINCTRL, "set", cfg["SIM_PWR_PIN"], "op", riposo])
 
 
 def velocita_da_provare(cfg):
@@ -589,6 +596,7 @@ class Servizio:
         signal.signal(signal.SIGTERM, self.chiudi)
         signal.signal(signal.SIGINT, self.chiudi)
         evento("servizio avviato (v%s, modo %s)" % (VERSIONE, self.cfg["SIM_MODE"]))
+        pwrkey_a_riposo(self.cfg)
         while not self.terminato:
             try:
                 self.giro()
