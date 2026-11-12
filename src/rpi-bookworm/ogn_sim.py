@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-# ogn_sim.py v1.3 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# ogn_sim.py v1.4 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
 # v1.1: la strada predefinita via ppp0 la mette questo servizio (pppd con defaultroute non sostituisce una strada
 #       gia' presente, come quella del Wi-Fi): metrica 700 se il Wi-Fi da' internet, 50 se non lo da'.
+# v1.4: la registrazione scrive nel registro ogni cambio di CEREG e ogni 60 s, aggiorna il file di stato e si ferma subito con SIGTERM
+#       (il 12 nov 2026 systemd ha dovuto uccidere il servizio dopo 30 s).
 # v1.3: all'avvio il pin PWRKEY va al livello di riposo (polarita' alta confermata il 12 nov 2026: impulso alto 2 s accende e spegne).
 # v1.2: dopo la caduta di pppd (12 nov 2026: 'Serial link appears to be disconnected') il modulo restava in modalita' dati e
 #       ignorava i comandi AT: ora prova l'uscita con la sequenza +++ (pause di 1,2 s) e ATH, prima di pensare a PWRKEY.
@@ -34,7 +36,8 @@ except ImportError:
     sys.stderr.write("ogn_sim: manca python3-serial (sudo apt install python3-serial)\n")
     sys.exit(2)
 
-VERSIONE = "1.3"
+VERSIONE = "1.4"
+FERMA = False   # impostata da SIGTERM: i cicli lunghi (accensione, registrazione) devono uscire subito
 CONF = os.environ.get("OGN_SIM_CONF", "/etc/default/ogn-sim")
 DEV = os.environ.get("OGN_SIM_DEV", "/dev/serial0")
 PPPD = os.environ.get("PPPD_CMD", "pppd")
@@ -214,7 +217,7 @@ def accendi_modulo(modem, cfg, st):
         st["impulsi"] = st.get("impulsi", 0) + 1
         impulso_pwrkey(cfg)
         fine = time.time() + 30
-        while time.time() < fine:
+        while time.time() < fine and not FERMA:
             time.sleep(3)
             b = trova_modulo(modem, cfg)
             if b:
@@ -269,12 +272,22 @@ def raccogli_info(modem, st):
     st.update(interpreta_cpsi(t))
 
 
-def attendi_registrazione(modem, cfg, st):
-    fine = time.time() + int(cfg["SIM_REG_TIMEOUT"])
+def attendi_registrazione(modem, cfg, st, aggiorna=None):
+    inizio = time.time()
+    fine = inizio + int(cfg["SIM_REG_TIMEOUT"])
     stat = "?"
-    while time.time() < fine:
+    ultimo = None
+    ultimo_log = 0
+    while time.time() < fine and not FERMA:
         ok, stat = registrato(modem)
         st["cereg"] = stat
+        if aggiorna:
+            aggiorna()
+        if stat != ultimo or time.time() - ultimo_log >= 60:
+            ok2, csq = modem.at("AT+CSQ", 3.0)
+            m = re.search(r"\+CSQ:\s*(\d+)", csq)
+            evento("registrazione: CEREG %s, CSQ %s, da %d s" % (stat, m.group(1) if m else "?", time.time() - inizio))
+            ultimo, ultimo_log = stat, time.time()
         if ok:
             raccogli_info(modem, st)
             return True
@@ -476,7 +489,7 @@ class Servizio:
         self.st["fase"] = "registrazione"
         self.scrivi_stato()
         configura(self.modem, self.cfg)
-        if not attendi_registrazione(self.modem, self.cfg, self.st):
+        if not attendi_registrazione(self.modem, self.cfg, self.st, self.scrivi_stato):
             evento("nessuna registrazione alla rete entro %s s (CEREG %s)" %
                    (self.cfg["SIM_REG_TIMEOUT"], self.st.get("cereg")))
             self.modem.chiudi()
@@ -590,6 +603,8 @@ class Servizio:
         self.scrivi_stato()
 
     def chiudi(self, *_):
+        global FERMA
+        FERMA = True
         self.terminato = True
 
     def corri(self):
