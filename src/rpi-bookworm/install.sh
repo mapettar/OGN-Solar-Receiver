@@ -229,8 +229,8 @@ noipdefault
 noccp
 noipv6
 holdoff 10
-lcp-echo-interval 30
-lcp-echo-failure 4
+lcp-echo-interval 60
+lcp-echo-failure 5
 SIMEOF
   info "$DESTDIR/etc/ppp/chat-simbase e peers/simbase"
 fi

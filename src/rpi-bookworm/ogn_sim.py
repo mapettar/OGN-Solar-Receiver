@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-# ogn_sim.py v1.1 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# ogn_sim.py v1.2 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
 # v1.1: la strada predefinita via ppp0 la mette questo servizio (pppd con defaultroute non sostituisce una strada
 #       gia' presente, come quella del Wi-Fi): metrica 700 se il Wi-Fi da' internet, 50 se non lo da'.
+# v1.2: dopo la caduta di pppd (12 nov 2026: 'Serial link appears to be disconnected') il modulo restava in modalita' dati e
+#       ignorava i comandi AT: ora prova l'uscita con la sequenza +++ (pause di 1,2 s) e ATH, prima di pensare a PWRKEY.
 # Servizio systemd (ogn-sim.service). Fa queste cose, in ordine:
 #   1) controlla se il modulo risponde ad AT sulla seriale; se no, gli da' l'impulso su PWRKEY (GPIO4, serve il
 #      ponticello PWR-P7 sulla HAT) e riprova (al massimo due impulsi: l'impulso INVERTE lo stato del modulo);
@@ -31,7 +33,7 @@ except ImportError:
     sys.stderr.write("ogn_sim: manca python3-serial (sudo apt install python3-serial)\n")
     sys.exit(2)
 
-VERSIONE = "1.1"
+VERSIONE = "1.2"
 CONF = os.environ.get("OGN_SIM_CONF", "/etc/default/ogn-sim")
 DEV = os.environ.get("OGN_SIM_DEV", "/dev/serial0")
 PPPD = os.environ.get("PPPD_CMD", "pppd")
@@ -140,6 +142,18 @@ class Modem:
                     return False, buf.strip()
         return False, buf.strip()
 
+    def esci_da_dati(self):
+        """Dalla modalita' dati si torna ai comandi con +++ preceduto e seguito da 1 s di silenzio, poi ATH."""
+        try:
+            self.s.reset_input_buffer()
+            time.sleep(1.2)
+            self.s.write(b"+++")
+            time.sleep(1.2)
+            self.s.read(200)
+            self.at("ATH", 2.0)
+        except (OSError, serial.SerialException):
+            pass
+
     def risponde(self, baud, tentativi=3):
         """Il modulo riconosce la velocita' dai primi caratteri: i primi AT possono andare persi."""
         try:
@@ -147,6 +161,11 @@ class Modem:
         except (OSError, serial.SerialException, ValueError):
             return False
         for _ in range(tentativi):
+            ok, _ = self.at("AT", 1.0)
+            if ok:
+                return True
+        self.esci_da_dati()           # forse e' rimasto in modalita' dati dopo la caduta del PPP
+        for _ in range(2):
             ok, _ = self.at("AT", 1.0)
             if ok:
                 return True
@@ -374,7 +393,19 @@ class Servizio:
         return ping_su(ifname, self.cfg["SIM_PING_HOST"], 3)
 
     # ---- PPP -----------------------------------------------------------------------------
+    def torna_ai_comandi(self):
+        """Dopo la chiusura di pppd il modulo puo' essere ancora in modalita' dati."""
+        if not self.baud:
+            return
+        try:
+            self.modem.apri(self.baud)
+            self.modem.esci_da_dati()
+        except (OSError, serial.SerialException, ValueError):
+            pass
+        self.modem.chiudi()
+
     def ppp_ferma(self, motivo):
+        era_su = self.ppp is not None
         if self.ppp is not None:
             try:
                 self.ppp.terminate()
@@ -391,6 +422,8 @@ class Servizio:
         self.cont_prec = None
         self.metrica_strada = None
         self.dns_ripristina()
+        if era_su:
+            self.torna_ai_comandi()
         self.st["fase"] = "ppp spento"
 
     def ppp_avvia(self, metrica):
