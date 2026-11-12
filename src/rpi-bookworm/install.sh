@@ -1,7 +1,8 @@
 #!/bin/bash
-# install.sh v1.6 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.7 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
+# v1.7: opzione --sim off|auto|always (+ --sim-apn): collegamento a internet via SIM7080G con PPP (ogn_sim.py, ogn-sim.service, /etc/default/ogn-sim, chat e peer di pppd).
 # v1.6: opzione --hw-watchdog on|off: watchdog hardware del SoC (systemd lo alimenta; se la Pi si congela si riavvia da sola in ~15 s) e journal persistente.
 # v1.5: opzione --watchdog off|prova|on: riavvio automatico se la chiavetta RTL-SDR manca (ogn-usb-watchdog.sh, cron ogni 5 min).
 # v1.4: opzione --web on: pagina di stato sulla porta 8090 (stato_web.py + ogn-stato-web.service), solo rete locale/Tailscale.
@@ -21,6 +22,8 @@
 #   --web on|off                  on = pagina di stato HTML sulla porta 8090, aggiornata ogni 10 minuti (default off)
 #   --watchdog off|prova|on       riavvia la Pi se la chiavetta manca: prova = solo log, on = riavvia davvero (non cambia se omessa)
 #   --hw-watchdog on|off          on = riavvio automatico se tutto il sistema si blocca (watchdog del chip, 15 s); off = lo toglie (non cambia se omessa)
+#   --sim off|auto|always         SIM7080G con PPP: auto = solo se il Wi-Fi non da' internet, always = sempre su, off = spento (non cambia se omessa)
+#   --sim-apn NOME                APN della SIM (default simbase)
 #   --branch NOME                 ramo del repository (default rpi-bookworm-3a-plus)
 #   --local CARTELLA              usa i file di una copia locale invece di scaricarli
 #   --no-system                   non tocca apt, systemctl, timezone, config.txt (per i test)
@@ -33,6 +36,8 @@ SCHEDULE=off
 WEB=off
 WATCHDOG=""
 HWWD=""
+SIM=""
+SIM_APN=simbase
 LOCAL=""
 NOSYSTEM=0
 DESTDIR=${DESTDIR:-}
@@ -45,10 +50,12 @@ while [ $# -gt 0 ]; do
     --web)      WEB=$2; shift 2;;
     --watchdog) WATCHDOG=$2; shift 2;;
     --hw-watchdog) HWWD=$2; shift 2;;
+    --sim)      SIM=$2; shift 2;;
+    --sim-apn)  SIM_APN=$2; shift 2;;
     --branch)   BRANCH=$2; shift 2;;
     --local)    LOCAL=$2; shift 2;;
     --no-system) NOSYSTEM=1; shift;;
-    -h|--help)  sed -n '2,27p' "$0"; exit 0;;
+    -h|--help)  sed -n '2,30p' "$0"; exit 0;;
     *) echo "Opzione sconosciuta: $1 (usa --help)"; exit 1;;
   esac
 done
@@ -57,6 +64,8 @@ case "$SCHEDULE" in on|off) ;; *) echo "--schedule: on oppure off"; exit 1;; esa
 case "$WEB" in on|off) ;; *) echo "--web: on oppure off"; exit 1;; esac
 case "$WATCHDOG" in ""|off|prova|on) ;; *) echo "--watchdog: off, prova oppure on"; exit 1;; esac
 case "$HWWD" in ""|on|off) ;; *) echo "--hw-watchdog: on oppure off"; exit 1;; esac
+case "$SIM" in ""|off|auto|always) ;; *) echo "--sim: off, auto oppure always"; exit 1;; esac
+case "$SIM_APN" in *[!A-Za-z0-9._-]*|"") echo "--sim-apn: solo lettere, numeri, punto, trattino"; exit 1;; esac
 
 BASE="https://raw.githubusercontent.com/$REPO/$BRANCH/src/rpi-bookworm"
 STAMP=$(date +%Y%m%d-%H%M)
@@ -91,6 +100,10 @@ if [ "$NOSYSTEM" -eq 0 ]; then
   command -v crontab  >/dev/null 2>&1 || NEED="$NEED cron"
   command -v python3  >/dev/null 2>&1 || NEED="$NEED python3"
   command -v lsusb    >/dev/null 2>&1 || NEED="$NEED usbutils"       # lo usa "stato" per la chiavetta RTL-SDR
+  if [ -n "$SIM" ] && [ "$SIM" != off ]; then
+    command -v pppd >/dev/null 2>&1 || NEED="$NEED ppp"
+    python3 -c "import serial" >/dev/null 2>&1 || NEED="$NEED python3-serial"
+  fi
   if [ -n "$NEED" ]; then info "installo:$NEED"; apt-get update -qq; apt-get install -y -qq --no-install-recommends $NEED; else info "nessun pacchetto da installare"; fi
 
   say "I2C"
@@ -127,6 +140,10 @@ fetch ds3231_log.sh           /usr/local/sbin/ds3231_log.sh       755
 fetch ogn-boot-setup.service  /etc/systemd/system/ogn-boot-setup.service 644
 if [ -n "$WATCHDOG" ] && [ "$WATCHDOG" != off ]; then
   fetch ogn-usb-watchdog.sh     /usr/local/sbin/ogn-usb-watchdog.sh 755
+fi
+if [ -n "$SIM" ] && [ "$SIM" != off ]; then
+  fetch ogn_sim.py              /usr/local/sbin/ogn_sim.py          755
+  fetch ogn-sim.service         /etc/systemd/system/ogn-sim.service 644
 fi
 if [ "$WEB" = on ]; then
   fetch stato_web.py            /usr/local/sbin/stato_web.py        755
@@ -170,6 +187,53 @@ case "$HWWD" in
     [ -f "$WDF" ] && info "watchdog hardware: gia' configurato, lo lascio com'e'" || info "watchdog hardware: non attivo (usa --hw-watchdog on)";;
 esac
 
+# SIM7080G: impostazioni, chat e peer di pppd (dispositivo e velocita' li passa ogn_sim.py)
+if [ -n "$SIM" ]; then
+  SIMDEF="$DESTDIR/etc/default/ogn-sim"
+  if [ ! -f "$SIMDEF" ]; then
+    cat > "$SIMDEF" <<SIMEOF
+# Impostazioni del collegamento SIM (ogn_sim.py). Modi: off | auto | always
+SIM_MODE=$SIM
+SIM_APN=$SIM_APN
+# Altre voci (valori predefiniti): SIM_RAT=ltem SIM_BAUD=57600 SIM_PWR_PIN=4 SIM_PWR_ACTIVE=high
+#   SIM_WIFI_GRACE=90 SIM_WIFI_BACK=300 SIM_DNS="1.1.1.1 8.8.8.8" SIM_DNS_MODE=write|none
+SIMEOF
+    info "creato $SIMDEF (SIM_MODE=$SIM, APN $SIM_APN)"
+  else
+    sed -i '/^SIM_MODE=/d' "$SIMDEF"; echo "SIM_MODE=$SIM" >> "$SIMDEF"
+    if [ "$SIM_APN" != simbase ]; then sed -i '/^SIM_APN=/d' "$SIMDEF"; echo "SIM_APN=$SIM_APN" >> "$SIMDEF"; fi
+    info "$SIMDEF aggiornato: SIM_MODE=$SIM"
+  fi
+  APN_LETTO=$(grep '^SIM_APN=' "$SIMDEF" | tail -1 | cut -d= -f2)
+  APN_LETTO=${APN_LETTO:-$SIM_APN}
+  mkdir -p "$DESTDIR/etc/ppp/peers"
+  {
+    echo 'ABORT "NO CARRIER"'
+    echo 'ABORT "ERROR"'
+    echo 'ABORT "NO DIALTONE"'
+    echo 'ABORT "BUSY"'
+    echo 'TIMEOUT 40'
+    echo '"" "AT"'
+    echo "OK \"AT+CGDCONT=1,\\\"IP\\\",\\\"$APN_LETTO\\\"\""
+    echo 'OK "ATD*99#"'
+    echo 'CONNECT ""'
+  } > "$DESTDIR/etc/ppp/chat-simbase"
+  cat > "$DESTDIR/etc/ppp/peers/simbase" <<'SIMEOF'
+# Creato da install.sh. Dispositivo e velocita' li passa ogn_sim.py sulla riga di comando.
+connect "/usr/sbin/chat -v -f /etc/ppp/chat-simbase"
+noauth
+local
+lock
+nocrtscts
+noipdefault
+noccp
+holdoff 10
+lcp-echo-interval 30
+lcp-echo-failure 4
+SIMEOF
+  info "$DESTDIR/etc/ppp/chat-simbase e peers/simbase"
+fi
+
 # Cron e rotazione dei log
 mkdir -p "$DESTDIR/etc/cron.d" "$DESTDIR/etc/logrotate.d"
 cat > "$DESTDIR/etc/cron.d/ogn-station" <<EOF
@@ -203,6 +267,14 @@ if [ "$NOSYSTEM" -eq 0 ]; then
   systemctl daemon-reexec && info "systemd riletto (il watchdog hardware, se attivo, parte subito)"
   systemctl enable ogn-boot-setup.service
   info "ogn-boot-setup abilitato (parte ad ogni avvio)"
+  if [ -n "$SIM" ]; then
+    if [ "$SIM" = off ]; then
+      systemctl disable --now ogn-sim.service 2>/dev/null && info "servizio SIM spento"
+    else
+      systemctl enable ogn-sim.service && systemctl restart ogn-sim.service && info "servizio SIM attivo (modo $SIM)"
+      info "SIM: serve il ponticello PWR-P7 sulla HAT e i pin 1-10 del connettore saldati"
+    fi
+  fi
   if [ "$WEB" = on ]; then
     mkdir -p /var/lib/ogn-stato
     /usr/bin/python3 /usr/local/sbin/stato_web.py || warn "prima generazione della pagina fallita (ci riprova il cron)"

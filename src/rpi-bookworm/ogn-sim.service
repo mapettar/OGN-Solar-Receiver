@@ -1,0 +1,14 @@
+[Unit]
+Description=OGN: collegamento a internet via SIM (SIM7080G, PPP)
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /usr/local/sbin/ogn_sim.py
+Restart=always
+RestartSec=15
+KillMode=control-group
+TimeoutStopSec=30
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

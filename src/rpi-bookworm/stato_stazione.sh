@@ -1,10 +1,11 @@
 #!/bin/bash
-# stato_stazione.sh v1.13 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.14 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
 # scatola (BME280) e disco. In fondo il verdetto.
 # Non modifica niente: legge soltanto.
+# v1.14: sezione "SIM (collegamento dati)" se /etc/default/ogn-sim ha SIM_MODE diverso da off (ogn_sim.py).
 # v1.4: aggiunta la sezione "Ricevitore": il solo processo ogn-rf in esecuzione NON prova che
 #       riceva (31 ott 2026: chiavetta non rilevata dall'avvio, ogn-rf in attesa, "TUTTO OK").
 # v1.5: dalla prova reale con chiavetta scollegata e ricollegata:
@@ -78,6 +79,73 @@ if command -v tailscale >/dev/null 2>&1; then
   else warn "Tailscale installato ma il servizio non e' attivo (sudo systemctl enable --now tailscaled)"; fi
 else
   info "Tailscale non installato"
+fi
+
+# --- 1c. SIM (collegamento dati via SIM7080G, solo se configurato) ----------
+SIMDEF=${SIMDEF:-/etc/default/ogn-sim}
+SIMJSON=${SIMJSON:-/run/ogn-sim/stato.json}
+SIMDATI=${SIMDATI:-/var/lib/ogn-sim}
+SIM_MODE_LETTO=""
+[ -f "$SIMDEF" ] && SIM_MODE_LETTO=$(grep '^SIM_MODE=' "$SIMDEF" | tail -1 | cut -d= -f2 | tr -d '"')
+if [ -n "$SIM_MODE_LETTO" ] && [ "$SIM_MODE_LETTO" != off ]; then
+  titolo "SIM (collegamento dati)"
+  info "modo $SIM_MODE_LETTO ($( [ "$SIM_MODE_LETTO" = auto ] && echo 'la SIM si usa solo se il Wi-Fi non da internet' || echo 'la SIM e sempre collegata' ))"
+  if systemctl is-active --quiet ogn-sim 2>/dev/null; then
+    if [ -r "$SIMJSON" ] && command -v python3 >/dev/null 2>&1; then
+      eval "$(python3 -I - "$SIMJSON" <<'PYEOF'
+import json, sys, time
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+def q(v):
+    return "'" + str(v).replace("'", "") + "'"
+now = int(time.time())
+for k in ("fase", "ppp_ip", "operatore", "tecnologia", "banda", "csq", "rsrp", "cereg", "ppp_riavvii", "modulo_riavvii", "impulsi", "wifi_ok"):
+    print("SIM_%s=%s" % (k.upper(), q(d.get(k, ""))))
+print("SIM_PPP_SU=%s" % q(1 if d.get("ppp_su") else 0))
+print("SIM_PPP_ETA=%s" % q(now - d["ppp_da"] if d.get("ppp_da") else ""))
+print("SIM_PING_ETA=%s" % q(now - d["ultimo_ping_ok"] if d.get("ultimo_ping_ok") else ""))
+print("SIM_AGG_ETA=%s" % q(now - d["aggiornato"] if d.get("aggiornato") else ""))
+PYEOF
+)"
+      info "fase: ${SIM_FASE:-?}"
+      if [ -n "$SIM_AGG_ETA" ] && [ "$SIM_AGG_ETA" -gt 120 ] 2>/dev/null; then
+        warn "il servizio SIM non aggiorna lo stato da $((SIM_AGG_ETA/60)) minuti: bloccato?"
+      fi
+      if [ "$SIM_PPP_SU" = 1 ]; then
+        ok "PPP su: indirizzo ${SIM_PPP_IP}, da $(( ${SIM_PPP_ETA:-0} / 60 )) min"
+        [ -n "$SIM_PING_ETA" ] && info "ultimo ping riuscito $SIM_PING_ETA s fa"
+      else
+        if [ "$SIM_MODE_LETTO" = always ] && [ "$SEC" -gt 900 ]; then
+          warn "modo always ma il PPP non e su (fase: ${SIM_FASE:-?}): vedi gli eventi sim qui sotto"
+        elif [ "$SIM_MODE_LETTO" = auto ] && [ "$SIM_WIFI_OK" = False ]; then
+          [ "$SEC" -gt 900 ] && warn "il Wi-Fi non da internet e il PPP non e su (fase: ${SIM_FASE:-?})" || info "Wi-Fi senza internet: attendo la SIM (avvio da poco)"
+        else
+          info "PPP non in uso"
+        fi
+      fi
+      if [ -n "$SIM_OPERATORE" ]; then
+        info "rete: $SIM_OPERATORE, ${SIM_TECNOLOGIA:-?}, ${SIM_BANDA:-?}, segnale RSRP ${SIM_RSRP:-?} dBm (CSQ ${SIM_CSQ:-?}) - misurato alla registrazione"
+        case "$SIM_RSRP" in
+          -1[2-9][0-9]) warn "segnale LTE-M molto debole (RSRP $SIM_RSRP dBm): sposta l antenna o controlla il connettore" ;;
+        esac
+      fi
+      info "riavvii del PPP: ${SIM_PPP_RIAVVII:-0}, riavvii del modulo: ${SIM_MODULO_RIAVVII:-0}, impulsi PWRKEY: ${SIM_IMPULSI:-0}"
+    else
+      info "stato del servizio non leggibile ($SIMJSON)"
+    fi
+  else
+    warn "SIM_MODE=$SIM_MODE_LETTO ma il servizio ogn-sim non e attivo (sudo systemctl status ogn-sim)"
+  fi
+  SIMDATI_OGGI="$SIMDATI/dati-$(date -u +%F)"
+  if [ -r "$SIMDATI_OGGI" ]; then
+    read -r SRX STX < "$SIMDATI_OGGI"
+    info "dati sulla SIM oggi (UTC): ricevuti $(( ${SRX:-0} / 1024 )) kB, inviati $(( ${STX:-0} / 1024 )) kB"
+  fi
+  NSIM=$(grep -a -c "UTC sim " "$EVENTI" 2>/dev/null); NSIM_OGGI=$(grep -a "^$(date -u +%F) .* UTC sim " "$EVENTI" 2>/dev/null | wc -l)
+  info "eventi sim oggi: $NSIM_OGGI (totale nel registro: ${NSIM:-0})"
+  grep -a "UTC sim " "$EVENTI" 2>/dev/null | tail -3 | sed 's/^/       ultimo: /'
 fi
 
 # --- 2. Orologio DS3231 ----------------------------------------------------
