@@ -196,7 +196,7 @@ if [ -n "$SIM" ]; then
 SIM_MODE=$SIM
 SIM_APN=$SIM_APN
 # Altre voci (valori predefiniti): SIM_RAT=ltem SIM_BAUD=57600 SIM_PWR_PIN=4 SIM_PWR_ACTIVE=high
-#   SIM_WIFI_GRACE=90 SIM_WIFI_BACK=300 SIM_DNS="1.1.1.1 8.8.8.8" SIM_DNS_MODE=write|none
+#   SIM_PLMN=22210 (operatore preferito) SIM_WIFI_GRACE=90 SIM_WIFI_BACK=300 SIM_DNS="1.1.1.1 8.8.8.8" SIM_DNS_MODE=write|none
 SIMEOF
     info "creato $SIMDEF (SIM_MODE=$SIM, APN $SIM_APN)"
   else

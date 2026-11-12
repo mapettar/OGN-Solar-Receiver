@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-# ogn_sim.py v1.4 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# ogn_sim.py v1.5 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
 # v1.1: la strada predefinita via ppp0 la mette questo servizio (pppd con defaultroute non sostituisce una strada
 #       gia' presente, come quella del Wi-Fi): metrica 700 se il Wi-Fi da' internet, 50 se non lo da'.
+# v1.5: SIM_PLMN (es. 22210 = Vodafone IT): dopo l'accensione il modulo sceglie quell'operatore con AT+COPS=4 (manuale, con ritorno
+#       all'automatico se manca). Il 12 nov 2026 la selezione automatica restava a CEREG 2 per minuti, a mano Vodafone si registrava subito.
 # v1.4: la registrazione scrive nel registro ogni cambio di CEREG e ogni 60 s, aggiorna il file di stato e si ferma subito con SIGTERM
 #       (il 12 nov 2026 systemd ha dovuto uccidere il servizio dopo 30 s).
 # v1.3: all'avvio il pin PWRKEY va al livello di riposo (polarita' alta confermata il 12 nov 2026: impulso alto 2 s accende e spegne).
@@ -36,7 +38,7 @@ except ImportError:
     sys.stderr.write("ogn_sim: manca python3-serial (sudo apt install python3-serial)\n")
     sys.exit(2)
 
-VERSIONE = "1.4"
+VERSIONE = "1.5"
 FERMA = False   # impostata da SIGTERM: i cicli lunghi (accensione, registrazione) devono uscire subito
 CONF = os.environ.get("OGN_SIM_CONF", "/etc/default/ogn-sim")
 DEV = os.environ.get("OGN_SIM_DEV", "/dev/serial0")
@@ -54,6 +56,7 @@ TICK = float(os.environ.get("TICK", "10"))
 DEFAULTS = {
     "SIM_MODE": "off",            # off | auto | always
     "SIM_APN": "simbase",
+    "SIM_PLMN": "",               # operatore da preferire (MCC+MNC, es. 22210); vuoto = scelta automatica
     "SIM_RAT": "ltem",            # ltem | nbiot | both
     "SIM_BAUD": "57600",          # velocita' provata per prima (il modulo la riconosce da solo)
     "SIM_PWR_PIN": "4",           # GPIO BCM del PWRKEY (ponticello PWR-P7)
@@ -231,6 +234,10 @@ def configura(modem, cfg):
     for cmd in ("ATE0", "AT+CFUN=1", "AT+CNMP=38", "AT+CMNB=" + rat,
                 'AT+CGDCONT=1,"IP","%s"' % cfg["SIM_APN"]):
         modem.at(cmd, 5.0)
+    plmn = cfg.get("SIM_PLMN", "").strip()
+    if plmn:
+        act = {"ltem": "7", "nbiot": "9"}.get(cfg["SIM_RAT"])
+        modem.at('AT+COPS=4,2,"%s"%s' % (plmn, "," + act if act else ""), 60.0)
 
 
 def interpreta_cpsi(testo):
