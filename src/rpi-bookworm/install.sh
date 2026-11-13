@@ -1,7 +1,8 @@
 #!/bin/bash
-# install.sh v1.7 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
+# install.sh v1.8 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
+# v1.8: ogn-rtc-ora (ora del DS3231 nell'orologio di sistema all'avvio, prima della rete e prima di ogn-sim).
 # v1.7: opzione --sim off|auto|always (+ --sim-apn): collegamento a internet via SIM7080G con PPP (ogn_sim.py, ogn-sim.service, /etc/default/ogn-sim, chat e peer di pppd).
 # v1.6: opzione --hw-watchdog on|off: watchdog hardware del SoC (systemd lo alimenta; se la Pi si congela si riavvia da sola in ~15 s) e journal persistente.
 # v1.5: opzione --watchdog off|prova|on: riavvio automatico se la chiavetta RTL-SDR manca (ogn-usb-watchdog.sh, cron ogni 5 min).
@@ -138,6 +139,8 @@ fetch stato_stazione.sh       /usr/local/sbin/stato_stazione.sh   755
 fetch bme280_log.py           /usr/local/sbin/bme280_log.py       755
 fetch ds3231_log.sh           /usr/local/sbin/ds3231_log.sh       755
 fetch ogn-boot-setup.service  /etc/systemd/system/ogn-boot-setup.service 644
+fetch ogn-rtc-ora.sh          /usr/local/sbin/ogn-rtc-ora.sh      755
+fetch ogn-rtc-ora.service     /etc/systemd/system/ogn-rtc-ora.service 644
 if [ -n "$WATCHDOG" ] && [ "$WATCHDOG" != off ]; then
   fetch ogn-usb-watchdog.sh     /usr/local/sbin/ogn-usb-watchdog.sh 755
 fi
@@ -268,6 +271,8 @@ if [ "$NOSYSTEM" -eq 0 ]; then
   systemctl daemon-reexec && info "systemd riletto (il watchdog hardware, se attivo, parte subito)"
   systemctl enable ogn-boot-setup.service
   info "ogn-boot-setup abilitato (parte ad ogni avvio)"
+  systemctl enable ogn-rtc-ora.service
+  info "ogn-rtc-ora abilitato (ora dal DS3231 all'avvio, prima della rete)"
   if [ -n "$SIM" ]; then
     if [ "$SIM" = off ]; then
       systemctl disable --now ogn-sim.service 2>/dev/null && info "servizio SIM spento"

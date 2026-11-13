@@ -1,0 +1,13 @@
+[Unit]
+Description=OGN: ora di sistema dal DS3231 all'avvio (prima della rete)
+After=fake-hwclock.service local-fs.target
+Before=ogn-boot-setup.service ogn-sim.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ogn-rtc-ora.sh
+RemainAfterExit=yes
+TimeoutStartSec=60
+
+[Install]
+WantedBy=multi-user.target
