@@ -2,7 +2,7 @@
 # install.sh v1.8 - installa su Raspberry Pi 3A+ (Bookworm) tutto quello che e' nel repository:
 #   ogn-boot-setup (ora DS3231 + spegnimento serale), calc_sunset, monitor_batteria,
 #   stato (riepilogo mattutino), bme280_log, ds3231_log, cron e logrotate.
-# v1.8: ogn-rtc-ora (ora del DS3231 nell'orologio di sistema all'avvio, prima della rete e prima di ogn-sim).
+# v1.8 (+ --sim-plmn): ogn-rtc-ora (ora del DS3231 nell'orologio di sistema all'avvio, prima della rete e prima di ogn-sim).
 # v1.7: opzione --sim off|auto|always (+ --sim-apn): collegamento a internet via SIM7080G con PPP (ogn_sim.py, ogn-sim.service, /etc/default/ogn-sim, chat e peer di pppd).
 # v1.6: opzione --hw-watchdog on|off: watchdog hardware del SoC (systemd lo alimenta; se la Pi si congela si riavvia da sola in ~15 s) e journal persistente.
 # v1.5: opzione --watchdog off|prova|on: riavvio automatico se la chiavetta RTL-SDR manca (ogn-usb-watchdog.sh, cron ogni 5 min).
@@ -25,6 +25,7 @@
 #   --hw-watchdog on|off          on = riavvio automatico se tutto il sistema si blocca (watchdog del chip, 15 s); off = lo toglie (non cambia se omessa)
 #   --sim off|auto|always         SIM7080G con PPP: auto = solo se il Wi-Fi non da' internet, always = sempre su, off = spento (non cambia se omessa)
 #   --sim-apn NOME                APN della SIM (default simbase)
+#   --sim-plmn CODICE             operatore da preferire, MCC+MNC (es. 22210 = Vodafone IT; consigliato con la SIM Simbase)
 #   --branch NOME                 ramo del repository (default rpi-bookworm-3a-plus)
 #   --local CARTELLA              usa i file di una copia locale invece di scaricarli
 #   --no-system                   non tocca apt, systemctl, timezone, config.txt (per i test)
@@ -39,6 +40,7 @@ WATCHDOG=""
 HWWD=""
 SIM=""
 SIM_APN=simbase
+SIM_PLMN=
 LOCAL=""
 NOSYSTEM=0
 DESTDIR=${DESTDIR:-}
@@ -53,6 +55,7 @@ while [ $# -gt 0 ]; do
     --hw-watchdog) HWWD=$2; shift 2;;
     --sim)      SIM=$2; shift 2;;
     --sim-apn)  SIM_APN=$2; shift 2;;
+    --sim-plmn) SIM_PLMN=$2; shift 2;;
     --branch)   BRANCH=$2; shift 2;;
     --local)    LOCAL=$2; shift 2;;
     --no-system) NOSYSTEM=1; shift;;
@@ -66,6 +69,7 @@ case "$WEB" in on|off) ;; *) echo "--web: on oppure off"; exit 1;; esac
 case "$WATCHDOG" in ""|off|prova|on) ;; *) echo "--watchdog: off, prova oppure on"; exit 1;; esac
 case "$HWWD" in ""|on|off) ;; *) echo "--hw-watchdog: on oppure off"; exit 1;; esac
 case "$SIM" in ""|off|auto|always) ;; *) echo "--sim: off, auto oppure always"; exit 1;; esac
+case "$SIM_PLMN" in ""|[0-9][0-9][0-9][0-9][0-9]|[0-9][0-9][0-9][0-9][0-9][0-9]) ;; *) echo "--sim-plmn: 5 o 6 cifre (MCC+MNC, es. 22210)"; exit 1;; esac
 case "$SIM_APN" in *[!A-Za-z0-9._-]*|"") echo "--sim-apn: solo lettere, numeri, punto, trattino"; exit 1;; esac
 
 BASE="https://raw.githubusercontent.com/$REPO/$BRANCH/src/rpi-bookworm"
@@ -198,13 +202,15 @@ if [ -n "$SIM" ]; then
 # Impostazioni del collegamento SIM (ogn_sim.py). Modi: off | auto | always
 SIM_MODE=$SIM
 SIM_APN=$SIM_APN
-# Altre voci (valori predefiniti): SIM_RAT=ltem SIM_BAUD=57600 SIM_PWR_PIN=4 SIM_PWR_ACTIVE=high
+${SIM_PLMN:+SIM_PLMN=$SIM_PLMN
+}# Altre voci (valori predefiniti): SIM_RAT=ltem SIM_BAUD=57600 SIM_PWR_PIN=4 SIM_PWR_ACTIVE=high
 #   SIM_PLMN=22210 (Vodafone IT, consigliato con la SIM Simbase) SIM_WIFI_GRACE=90 SIM_WIFI_BACK=300 SIM_DNS="1.1.1.1 8.8.8.8" SIM_DNS_MODE=write|none
 SIMEOF
     info "creato $SIMDEF (SIM_MODE=$SIM, APN $SIM_APN)"
   else
     sed -i '/^SIM_MODE=/d' "$SIMDEF"; echo "SIM_MODE=$SIM" >> "$SIMDEF"
     if [ "$SIM_APN" != simbase ]; then sed -i '/^SIM_APN=/d' "$SIMDEF"; echo "SIM_APN=$SIM_APN" >> "$SIMDEF"; fi
+    if [ -n "$SIM_PLMN" ]; then sed -i '/^SIM_PLMN=/d' "$SIMDEF"; echo "SIM_PLMN=$SIM_PLMN" >> "$SIMDEF"; fi
     info "$SIMDEF aggiornato: SIM_MODE=$SIM"
   fi
   APN_LETTO=$(grep '^SIM_APN=' "$SIMDEF" | tail -1 | cut -d= -f2)
