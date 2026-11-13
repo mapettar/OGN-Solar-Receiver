@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-# ogn_sim.py v1.5 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
+# ogn_sim.py v1.6 - collegamento a internet via SIM (Waveshare SIM7080G HAT, LTE-M) con PPP.
 # v1.1: la strada predefinita via ppp0 la mette questo servizio (pppd con defaultroute non sostituisce una strada
 #       gia' presente, come quella del Wi-Fi): metrica 700 se il Wi-Fi da' internet, 50 se non lo da'.
+# v1.6: cambiando metrica della strada via ppp0 si cancella quella vecchia (ip route replace non lo fa: il 13 nov 2026 dopo il ritorno del
+#       Wi-Fi restava la metrica 50 e il traffico continuava a passare dalla SIM).
 # v1.5: SIM_PLMN (es. 22210 = Vodafone IT): dopo l'accensione il modulo sceglie quell'operatore con AT+COPS=4 (manuale, con ritorno
 #       all'automatico se manca). Il 12 nov 2026 la selezione automatica restava a CEREG 2 per minuti, a mano Vodafone si registrava subito.
 # v1.4: la registrazione scrive nel registro ogni cambio di CEREG e ogni 60 s, aggiorna il file di stato e si ferma subito con SIGTERM
@@ -38,7 +40,7 @@ except ImportError:
     sys.stderr.write("ogn_sim: manca python3-serial (sudo apt install python3-serial)\n")
     sys.exit(2)
 
-VERSIONE = "1.5"
+VERSIONE = "1.6"
 FERMA = False   # impostata da SIGTERM: i cicli lunghi (accensione, registrazione) devono uscire subito
 CONF = os.environ.get("OGN_SIM_CONF", "/etc/default/ogn-sim")
 DEV = os.environ.get("OGN_SIM_DEV", "/dev/serial0")
@@ -476,8 +478,11 @@ class Servizio:
         """Strada predefinita via ppp0 con la metrica voluta (sparisce da sola con l'interfaccia)."""
         if self.metrica_strada == metrica:
             return
+        vecchia = self.metrica_strada
         rc, out = esegui([IPCMD, "route", "replace", "default", "dev", "ppp0", "metric", str(metrica)], 5)
         if rc == 0:
+            if vecchia is not None and vecchia != metrica:
+                esegui([IPCMD, "route", "del", "default", "dev", "ppp0", "metric", str(vecchia)], 5)
             self.metrica_strada = metrica
             evento("strada predefinita via ppp0, metrica %s (%s)" %
                    (metrica, "SIM davanti al Wi-Fi" if metrica < 100 else "Wi-Fi davanti, SIM di riserva"))
