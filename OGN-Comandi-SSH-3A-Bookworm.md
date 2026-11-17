@@ -27,7 +27,7 @@ sudo bash install.sh --pacco 3s-liion --schedule on
 sudo reboot
 ```
 - `--pacco 3s-liion` (default) o `2s-lifepo4`: profilo batteria per il comando `stato` e per `monitor_batteria`.
-- `--schedule on`: spegnimento serale al tramonto. Usalo solo con ATtiny v1.7.3 e DS3231 collegati; **senza** (`off`, default) la Pi non si spegne da sola.
+- `--schedule on`: spegnimento serale al tramonto. Usalo solo con ATtiny v1.7.3 o successiva (ora v1.7.4) e DS3231 collegati; **senza** (`off`, default) la Pi non si spegne da sola.
 - Installa gli script in `/usr/local/sbin/`, il servizio `ogn-boot-setup`, il comando `stato`, i log del DS3231, del BME280 e della batteria (cron in `/etc/cron.d/ogn-station`) e la rotazione dei log. Attiva I2C. Si può rilanciare: i file diversi vengono salvati come `.bak-AAAAMMGG-HHMM`.
 - **Non** installa OGN, non configura Wi-Fi e non tocca Tailscale: le chiavi restano a mano.
 - Dopo il riavvio, 3-4 minuti dopo: `stato` (riepilogo con verdetto).
@@ -109,7 +109,9 @@ Soglie dell'ATtiny (conteggio = V × rapporto ÷ VCC × 1023). **Tabella della v
 | proposta (v1.7.4) spegni | 5,6 V | 350 |
 | proposta (v1.7.4) riaccendi | 6,2 V | 388 |
 
-**Pacco 3S Li-ion (56k/10k), valori misurati il 30 ott 2026:** il pin P4 del Digispark (linea USB con zener) carica il partitore. Con 12,26 V sul pacco, P4 = 1,72 V (rapporto 0,1403, non 0,1515) e VCC = 4,79 V. Le soglie 310 / 340 corrispondono quindi a ≈ **10,35 V (spegnimento) / 11,35 V (riavvio)**. Un partitore 18k/3,3k, provato per alzare il rapporto, ha dato 1,55 V (sotto la soglia di riavvio) con quel Digispark ed è stato rimesso a 56k/10k. La dispersione varia da un Digispark all'altro: misura P4 sul tuo e ricalcola con la formula.
+**Pacco 3S Li-ion (56k/10k), valori misurati il 30 ott 2026:** il pin P4 del Digispark (linea USB con zener) carica il partitore. Con 12,26 V sul pacco, P4 = 1,72 V (rapporto 0,1403, non 0,1515) e VCC = 4,79 V. Le soglie 310 / 340 corrispondevano quindi a ≈ 10,35 V / 11,35 V. Un partitore 18k/3,3k, provato per alzare il rapporto, ha dato 1,55 V (sotto la soglia di riavvio) con quel Digispark ed è stato rimesso a 56k/10k. La dispersione varia da un Digispark all'altro: misura P4 sul tuo e ricalcola con la formula.
+
+**Taratura del 17 nov 2026 (v1.7.4):** con il pacco a 10,9 V (letto dall'INA219 con `sudo monitor_batteria.py --pacco 3s-liion`), P4 = 1,555 V (rapporto 0,1427) e VCC = 4,75 V, cioè circa 30,7 conteggi per volt. Le soglie 310 / 340 valevano quindi ≈ 10,1 V / 11,1 V, e la mattina del 17 nov la stazione non è partita con il pacco a ≈ 10,85 V a riposo. La v1.7.4 usa `SOGLIA_BATT_MIN 295` (≈ 9,6 V) e `SOGLIA_BATT_ON 332` (≈ 10,8 V). Formula: `conteggi per volt = 1023 x (P4 / pacco) / VCC`, `soglia = tensione desiderata x conteggi per volt`. Con il pacco scarico la ripartenza richiede una tensione a riposo sopra la soglia ON: il banco in carica alza la tensione ai morsetti e può farla partire.
 
 Per misurare anche la **carica** serve un secondo INA219, in serie sul positivo tra l'uscita del CN3722 e il pacco (VIN+ lato CN3722, VIN− lato pacco). Il suo indirizzo deve essere 0x41: si unisce con una goccia di stagno il ponticello **A0**. Il primo INA219 (0x40) misura solo il consumo, perché sta tra il pacco e la Mini560.
 
@@ -126,7 +128,7 @@ tailscale status; tailscale ip
 Dopo una sostituzione della SD rimuovi il vecchio nodo dalla console Tailscale. Se una chiave di autenticazione è comparsa in una chat, **revocala** e generane una nuova. Le chiavi non vanno nei documenti né su GitHub.
 
 ## 7. SKETCH ATTINY (Digispark)
-- Versione corrente: `src/attiny/OGN_Attiny_v1_7_3/OGN_Attiny_v1_7_3.ino` (Digispark Default 16.5 MHz, libreria SoftI2CMaster).
+- Versione corrente: `src/attiny/OGN_Attiny_v1_7_4/OGN_Attiny_v1_7_4.ino` (come la v1.7.3, con le soglie batteria tarate) (Digispark Default 16.5 MHz, libreria SoftI2CMaster).
 - **Da Windows** con il pacchetto "Digistump AVR Boards". Sul Mac Intel (macOS 13) il pacchetto Digispark non gira: il compilatore e lo strumento di caricamento sono a 32 bit, e ATTinyCore non si installa finché `drazzy.com` ha il certificato scaduto (`curl -sI https://drazzy.com/package_drazzy.com_index.json`).
 - Carica con il Digispark **scollegato** e inseriscilo quando compare "Plug in device now".
 
@@ -213,3 +215,10 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 
 ---
 *Stazione OGN "MCucco" - IU6SVB - Umbria/Toscana 1300 m s.l.m. - Raspberry Pi 3A+ Bookworm*
+
+## Bus I2C bloccato: come riconoscerlo
+
+- `sudo i2cdetect -y 1` con **tutti** gli indirizzi presenti: SDA è tenuta a massa (filo, connettore o modulo in corto). Un bus sano e vuoto mostra solo `--`.
+- `batteria.csv` con `0.000 V` e `CRITICA!`, DS3231 `00:00:00` con stato `0x00`: letture a zero per bus bloccato, non batteria scarica.
+- Due INA219 che falliscono insieme: causa comune (connettore, massa), non due moduli guasti.
+- Procedura: scollegare il connettore dei 4 fili (`i2cdetect` deve mostrare solo trattini: Pi e HAT sane), poi ricollegare un modulo alla volta (anche togliendo il VCC del singolo modulo). Il 16 nov 2026 il colpevole era un filo del connettore a pin; indirizzi attesi: 0x40, 0x41, 0x57, 0x68, 0x76.

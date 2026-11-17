@@ -2,6 +2,7 @@
 
 | Percorso | Dove va | Note |
 |----------|---------|------|
+| `attiny/OGN_Attiny_v1_7_4/OGN_Attiny_v1_7_4.ino` | ATtiny85 Digispark (Arduino IDE) | **In uso dal 17 nov 2026.** Come la 1.7.3, cambiano solo le soglie batteria, tarate sulle misure: `SOGLIA_BATT_MIN 295` (spegne a circa 9,6 V) e `SOGLIA_BATT_ON 332` (riaccende a circa 10,8 V). Procedura di taratura nel commento iniziale e nel `README.md` della radice |
 | `attiny/OGN_Attiny_v1_7_3/OGN_Attiny_v1_7_3.ino` | ATtiny85 Digispark (Arduino IDE) | Come la 1.7.2, ma negli ultimi 3 minuti prima del taglio non legge il DS3231 (SCL a massa sveglia la RPi in halt). Da usare con `SCHEDULE=on` (halt a tramonto-90, taglio a tramonto-88) |
 | `attiny/OGN_Attiny_v1_7_2/OGN_Attiny_v1_7_2.ino` | ATtiny85 Digispark (Arduino IDE) | Soglie batteria per Li-ion 3S (R1 56k / R2 10k). Per LiFePO4 2S con partitore 20k/10k: `SOGLIA_BATT_MIN 310`, `SOGLIA_BATT_ON 330` |
 | `rpi-boot/calc_sunset.py` | `/boot/` sulla RPi | Tramonto, crontab e taglio relè (tetto 19:00 CEST) |
@@ -20,6 +21,6 @@
 | `rpi-bookworm/bme280_log.py` | `/usr/local/sbin/` | Temperatura, umidità, pressione e punto di rugiada della scatola in `/boot/bme280.log`; avviso in `ogn-eventi.log` a umidità ≥ 80 % |
 | `rpi-bookworm/ds3231_log.sh` | `/usr/local/sbin/` | Una riga al minuto con ora e stato del DS3231 in `/var/log/ds3231.log` (cron) |
 
-Soglie 3S: con il Digispark e il partitore 56k/10k, `SOGLIA_BATT_MIN 310` e `SOGLIA_BATT_ON 340` corrispondono a circa 10,35 V e 11,35 V (misurati; vedi `README.md` nella radice del ramo).
+Soglie 3S: con il Digispark e il partitore 56k/10k i conteggi dell'ADC valgono circa 30,7 per volt (misura del 17 nov 2026), quindi `SOGLIA_BATT_MIN 295` e `SOGLIA_BATT_ON 332` (v1.7.4) corrispondono a circa 9,6 V e 10,8 V. Le v1.7.3 e precedenti (310 / 340) valevano circa 10,1 V e 11,1 V. La taratura va rifatta sul proprio esemplare: vedi `README.md` nella radice del ramo.
 
 Procedura di installazione e ripristino per la Pi 3A+: `OGN-Comandi-SSH-3A-Bookworm.md`. Per il progetto originale (Pi 4): `OGN-Solar-Receiver-Documentazione_1.6.md` (versione 1.7) e `OGN-Comandi-SSH-Reference.md`.

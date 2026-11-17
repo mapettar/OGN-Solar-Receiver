@@ -13,7 +13,7 @@ Stazione ricevente OGN (Open Glider Network) autonoma: pannello solare, batteria
 | Carica | - | modulo **CN3722** (MPPT) impostato 3S, pannello da 10 W |
 | 5 V per la Pi | - | **Mini560** (ingresso 7-20 V) |
 | Interruttore | relè | **MOSFET P** (AO3401 + BC547), PTC e TVS |
-| Sketch ATtiny85 | v1.7.2 | **v1.7.3** (`SOGLIA_BATT_MIN 310`, `SOGLIA_BATT_ON 340`, partitore 56k/10k) |
+| Sketch ATtiny85 | v1.7.2 | **v1.7.4** (`SOGLIA_BATT_MIN 295`, `SOGLIA_BATT_ON 332`, partitore 56k/10k, soglie tarate sulle misure) |
 | DS3231 | LIR2032 | **CR2032 senza ricarica** (togliere la resistenza di carica del modulo) |
 | Partenza | 08:00 UTC | **10:00 ora locale** tutto l'anno |
 | Sensori | INA219 | INA219 + **BME280** (temperatura e umidità della scatola) |
@@ -29,7 +29,18 @@ Stazione ricevente OGN (Open Glider Network) autonoma: pannello solare, batteria
 
 ## Soglie della batteria (valori misurati)
 
-Sul Digispark il pin P4 (linea USB con zener da 3,6 V) carica il partitore: con 12,26 V sul pacco si misurano 1,72 V (rapporto 0,1403 invece di 0,1515) e VCC = 4,79 V. La formula è `V = conteggi / 1023 x VCC / rapporto`. Con 310 e 340 conteggi le soglie reali sono circa **10,35 V (spegnimento)** e **11,35 V (riavvio)**. La dispersione varia da un Digispark all'altro e con la temperatura; l'errore è dal lato sicuro. Va misurato sul proprio esemplare.
+Sul Digispark il pin P4 (linea USB con zener da 3,6 V) carica il partitore, e l'ADC usa VCC come riferimento: le soglie in conteggi valgono volt diversi da quelli nominali (partitore ideale 56k/10k, rapporto 0,1515, VCC 4,8 V). La formula è `V = conteggi / 1023 x VCC / rapporto`.
+
+| Misura | Pacco | P4 | Rapporto | VCC | 310 / 340 conteggi valgono |
+|---|---|---|---|---|---|
+| 30 ott 2026 | 12,26 V | 1,72 V | 0,1403 | 4,79 V | 10,35 V / 11,35 V |
+| 17 nov 2026 | 10,9 V (INA219) | 1,555 V | 0,1427 | 4,75 V | 10,09 V / 11,07 V |
+
+Il rapporto sembra calare un po' con la tensione (causa probabile: dispersione dello zener) e VCC cambia con temperatura e carico: l'incertezza sulle soglie è di 0,2-0,3 V. La taratura va fatta **vicino alla soglia che interessa, sul proprio Digispark**.
+
+**Cosa è successo il 17 nov 2026.** Con la v1.7.3 (310 / 340) lo spegnimento valeva circa 10,1 V e il riavvio circa 11,1 V, e non 9,6 e 10,5 come dicevano i commenti dello sketch. Dopo la giornata coperta del 16 nov il pacco era a circa 10,85 V a riposo, sotto la soglia di riavvio: la stazione, con il pannello da 20 W e cielo coperto, **non è partita alle 10:00**. Collegando il banco alla carica la tensione ai morsetti è salita sopra la soglia e la Pi è partita; una volta accesa vale solo la soglia di spegnimento, quindi i 10,9 V letti sotto carico non la spengono. Con luce scarsa il pannello non alza abbastanza la tensione ai morsetti: **per ripartire da sola la stazione ha bisogno di un pacco carico o di sole**.
+
+**v1.7.4:** `SOGLIA_BATT_MIN 295` (circa 9,6 V) e `SOGLIA_BATT_ON 332` (circa 10,8 V), con la taratura del 17 nov (30,7 conteggi per volt). Per ricalcolarle sul proprio esemplare: misurare con lo stesso tester la tensione del pacco (la Pi la legge con l'INA219), la tensione su P4 e VCC del Digispark; `conteggi per volt = 1023 x (P4 / pacco) / VCC`; `soglia = tensione desiderata x conteggi per volt`. L'ADC dell'ATtiny non è leggibile dalla Pi. I valori 9,6 V e 10,5 V delle tabelle della documentazione originale (1.6) sono nominali, con il partitore ideale.
 
 ## Consumo e pannello
 
@@ -41,6 +52,8 @@ Misure fatte con l'INA219 sulla stazione 3A+ (valori medi dei campioni a 10 minu
 | Stessa stazione, chiavetta non rilevata | circa 3,9 W (31 ott 2026, 18 campioni) |
 
 Stima (da confermare con i dati di giornate di sole): in estate la stazione resta accesa fino a 9 ore, cioè circa **50 Wh al giorno**. Un pannello da 10 W in Umbria rende circa 35-40 Wh al giorno tra giugno e luglio e meno nelle altre stagioni: **non basta con margine**. Per questo progetto è consigliato un pannello da **20 W** (controllare che la tensione a vuoto non superi il limite di ingresso del CN3722).
+
+**Misure successive (17 nov 2026).** Dal `batteria.csv`, nella finestra 10:30-15:00 dei giorni normali dal 30 ott al 17 nov, la corrente media del carico è di **430-460 mA, cioè circa 5-5,5 W** (non 3,5 W): sale a 520-590 mA nei giorni delle prove con la SIM e con il segnale debole. Le letture istantanee oscillano da 280 a 440 mA con la CPU di `ogn-rf`, quindi una sola lettura non basta. Il 16 nov, con il pannello flessibile da 20 W (46x30 cm) sul terrazzo, cielo coperto e pioggia, l'ingresso è stato di circa **1,7 Wh in tutta la giornata** (picco 2,7 W per una schiarita) contro circa 25 Wh consumati: il pacco perde 0,1-0,2 V all'ora senza carica e con cielo coperto un 20 W non copre il consumo. Il confronto 10 W / 20 W richiede giornate di sole nella stessa posizione e non è ancora stato fatto. Con 5 W e circa 10 ore di funzionamento in estate servono circa 50 Wh al giorno: il pacco da circa 70 Wh dura circa un giorno senza sole.
 
 ## Installazione
 
@@ -79,7 +92,10 @@ Dove manca il Wi-Fi la stazione usa una HAT **Waveshare SIM7080G** (LTE-M / NB-I
 - **Stazione nuova (SD con l'immagine base 0.3.3, poi `install.sh`):** `install.sh --sim always --sim-plmn 22210 --hw-watchdog on --watchdog on` installa servizio SIM, file di `pppd`, ora dal DS3231, journal persistente e watchdog. **Non** fa: la seriale per la HAT (`enable_uart=1` e `dtoverlay=disable-bt` in `config.txt`, console seriale tolta da `cmdline.txt`: la seriale `/dev/serial0` deve puntare a `ttyAMA0`), l'I2C acceso, il nome del ricevitore (`Call` nel `Template.conf`, unico per ogni stazione) e le coordinate, Tailscale (nuova chiave: un'immagine clonata ha l'identita' della stazione di partenza), il Wi-Fi. Su una Zero 2 W senza DS3231, INA219, BME280 e HAT: `SCHEDULE=off` e niente `--sim`.
 - **Strumento `sim_at.py`** (a servizio fermato, `sudo systemctl stop ogn-sim`): `sudo python3 sim_at.py` fa la diagnosi (SIM, radio, segnale, registrazione, operatore, bande), accetta comandi AT come argomenti, e con `--segnale [N]` fa N letture e la media di RSRP/RSRQ per confrontare antenne o posizioni.
 - **Segnale (prove del 12-13 nov 2026, in casa):** con l'antenna migliore RSRP da -109 a -111 dBm, ping 190-230 ms, PPP stabile; con la peggiore -119/-120 dBm, registrazione lenta o assente e PPP che cade. Intorno a -116/-118 dBm il PPP sale ma cade ogni tanto (il servizio lo rialza da solo in 1-5 minuti). La posizione e il cavo dell'antenna contano quanto il modello. Confronto del 13 nov 2026 con `sim_at.py --segnale` (media di 12 letture): antenna a stelo lunga -111,2 dBm in casa e -103,9 dBm in terrazzo; antenna adesiva con cavo di 10 cm -114,9 dBm in casa e -102,9 dBm in terrazzo, vicina alla batteria e ai componenti, quindi scelta per la scatola. Da ripetere con la scatola chiusa e sul sito. Un'antenna adesiva va incollata su plastica, non sul metallo.
-- **Da verificare sul campo:** velocita' della seriale (ora 57600, il modulo la riconosce da solo; fissabile con `AT+IPR=115200` e `AT&W`), consumo del modulo in trasmissione, traffico quando la SIM e' l'unica strada (con il Wi-Fi davanti sono circa 0,5 MB all'ora tra controlli e Tailscale) e l'ora all'avvio: senza rete l'orologio di sistema parte dall'ora salvata allo spegnimento (in ritardo di ore) e gli eventi dell'avvio, compresi quelli `sim`, uscivano con data e ora vecchie. `ogn-rtc-ora` (da `install.sh` 1.8, o a mano: script e unita' in `/usr/local/sbin` e `/etc/systemd/system`, poi `systemctl enable ogn-rtc-ora`) legge l'ora dal DS3231 all'avvio, prima della rete e di `ogn-sim`. Se la stazione resta spenta piu' giorni, la data resta quella dell'ultimo spegnimento finche' non arriva NTP.
+- **Da verificare sul campo:** consumo del modulo in trasmissione, traffico quando la SIM e' l'unica strada (con il Wi-Fi davanti sono circa 0,5 MB all'ora tra controlli e Tailscale) e l'ora all'avvio: senza rete l'orologio di sistema parte dall'ora salvata allo spegnimento (in ritardo di ore) e gli eventi dell'avvio, compresi quelli `sim`, uscivano con data e ora vecchie. `ogn-rtc-ora` (da `install.sh` 1.8, o a mano: script e unita' in `/usr/local/sbin` e `/etc/systemd/system`, poi `systemctl enable ogn-rtc-ora`) legge l'ora dal DS3231 all'avvio, prima della rete e di `ogn-sim`. Se la stazione resta spenta piu' giorni, la data resta quella dell'ultimo spegnimento finche' non arriva NTP.
+- **Velocita' della seriale (15-17 nov 2026).** Dopo un'accensione disordinata (HAT inserita male il 15 nov) il modulo si e' riagganciato a 9600 baud: il PPP girava ma troppo lento. Si fissa a 115200 con il servizio fermo: `sudo systemctl stop ogn-sim`, `sudo python3 sim_at.py "AT+IPR=115200"` (risponde `OK` a 9600, poi il modulo passa a 115200), `echo "SIM_BAUD=115200" | sudo tee -a /etc/default/ogn-sim`, `sudo systemctl start ogn-sim`. `AT&W` risponde `ERROR` ma **non serve**: la velocita' resta salvata, verificata dopo il taglio di corrente notturno del 16-17 nov. Controllo: a servizio fermo `sudo python3 sim_at.py "AT+IPR?"` deve rispondere `+IPR: 115200`. Il servizio scrive `modulo acceso e risponde (seriale a N)` solo quando deve dare l'impulso PWRKEY, quindi di norma la riga non c'e'.
+- **Primo ping dopo il PPP (16 nov 2026).** Appena il PPP sale il servizio manda **un solo ping** (attesa 20 s): se non risponde (segnale -121 dBm, il primo pacchetto puo' essere lento) chiude il PPP e riprova dopo 300 s. Durante il funzionamento normale invece tollera 4 prove fallite di fila; i ping persi isolati compaiono come `traffico di nuovo ok su ppp0` (circa uno ogni 20-30 minuti con -99 dBm, senza caduta del PPP). Da migliorare con piu' prove al primo ping e con il numero di prove fallite nel messaggio.
+- **Segnale (16-17 nov 2026):** in casa -116/-121 dBm (PPP su, ma al limite); in terrazzo, con l'antenna adesiva, -99 dBm (media di 6 letture, RSRQ -10,7). Con -121/-124 dBm il modulo trasmette a piena potenza e il consumo sale (circa 395 mA contro circa 283 mA a riposo).
 
 ## Impostazioni consigliate della Pi
 
@@ -90,12 +106,15 @@ In `/boot/firmware/config.txt` (e `sudo systemctl disable --now bluetooth hciuar
 - **Chiavetta RTL-SDR non rilevata** (31 ott 2026): dall'avvio delle 10:00 `lsusb` non la mostrava, `ogn-rf` ripeteva "Cannot open device" e la stazione non trasmetteva, mentre il vecchio controllo diceva "tutto ok". Alla riattaccatura comparivano errori USB `-71`. Un **riavvio con la chiavetta inserita direttamente** l'ha ripristinata. La causa non è stata identificata. Vedi la sezione 11 della guida SSH.
 - **DS3231 che perde l'ora:** sulla millefori con LIR2032 la perdeva; sul PCB nuovo, con la ricarica tolta, tiene l'ora (prova di 27 minuti senza 5 V e prova notturna). Si consiglia la CR2032.
 - **Digispark:** si programma solo da Windows, con il Digispark scollegato dal PCB e senza alimentazione sul PCB.
+- **Stazione non ripartita al mattino con il pacco a circa 10,85 V** (17 nov 2026): la soglia di riavvio della v1.7.3 valeva circa 11,1 V, non 10,5 V. Vedi "Soglie della batteria". Corretto con la v1.7.4. Per ripartire serve un pacco carico o sole.
+- **Filo del connettore I2C con contatto intermittente** (16 nov 2026): la stazione si riavviava (watchdog USB) e l'I2C dava risultati assurdi: `i2cdetect` con **tutti** gli indirizzi presenti (SDA tenuta a massa), letture a zero (`0.000 V CRITICA!` nel `batteria.csv`, DS3231 `00:00:00` con stato `0x00`), moduli che sparivano a turno. Due INA219 a zero insieme significano una causa comune sul bus, non un modulo guasto. Diagnosi per eliminazione: con il connettore dei 4 fili staccato `i2cdetect` mostra solo trattini (Pi e HAT sane); poi si ricollega un modulo alla volta. Era un filo di un connettore a pin: ricrimpare e fermare con colla a caldo. Con una lettura corrotta `ogn-rtc-ora` ha preso `00:00:00` e ha portato l'orologio di sistema al 17 nov alle 01:00 fino all'arrivo di NTP: da proteggere con un controllo di plausibilita'.
+- **Chiavetta non rilevata con riavvii del watchdog** (16 nov 2026): `device descriptor read/64, error -108/-110` e `Cannot enable. Maybe the USB cable is bad?`; il watchdog USB ha riavviato la Pi due volte (il massimo giornaliero) e la chiavetta e' tornata dopo un riavvio. Contatto probabile; vedi la sezione 11 della guida SSH.
 
 ## Contenuto del ramo
 
 | Percorso | Contenuto |
 |---|---|
-| `src/attiny/` | sketch del Digispark (v1.7.3 in uso) |
+| `src/attiny/` | sketch del Digispark (v1.7.4, soglie tarate; v1.7.3 fino al 17 nov 2026) |
 | `src/rpi-bookworm/` | script per la Pi 3A+: `install.sh`, `ogn-boot-setup.sh` e servizio, `calc_sunset.py`, `monitor_batteria.py`, `stato_stazione.sh`, `bme280_log.py`, `ds3231_log.sh` |
 | `src/rpi-boot/` | script della versione originale (Pi 4) |
 | `OGN-Comandi-SSH-3A-Bookworm.md` | guida rapida per la 3A+: installazione, verifica, ripristino |
