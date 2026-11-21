@@ -222,3 +222,21 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 - `batteria.csv` con `0.000 V` e `CRITICA!`, DS3231 `00:00:00` con stato `0x00`: letture a zero per bus bloccato, non batteria scarica.
 - Due INA219 che falliscono insieme: causa comune (connettore, massa), non due moduli guasti.
 - Procedura: scollegare il connettore dei 4 fili (`i2cdetect` deve mostrare solo trattini: Pi e HAT sane), poi ricollegare un modulo alla volta (anche togliendo il VCC del singolo modulo). Il 16 nov 2026 il colpevole era un filo del connettore a pin; indirizzi attesi: 0x40, 0x41, 0x57, 0x68, 0x76.
+
+## Spegnimento pulito a batteria bassa (ogn-batteria-guardia)
+
+L'ATtiny a circa 9,6 V apre il relè senza avvisare la Pi (taglio brusco, rischio per la SD). `ogn-batteria-guardia.py` evita il taglio brusco con lo stesso meccanismo della sera: scrive nell'allarme del DS3231 l'ora attuale + 3 minuti (mai prima delle 09:00 del DS3231, perché l'ATtiny ignora un allarme con ora <= 8) e fa `shutdown -h now`; l'ATtiny taglia a Pi già ferma. Non serve riprogrammare il Digispark.
+
+```
+sudo curl -fsSL https://raw.githubusercontent.com/mapettar/OGN-Solar-Receiver/rpi-bookworm-3a-plus/src/rpi-bookworm/ogn-batteria-guardia.py -o /usr/local/sbin/ogn-batteria-guardia.py
+sudo chmod +x /usr/local/sbin/ogn-batteria-guardia.py
+printf '* * * * * root /usr/local/sbin/ogn-batteria-guardia.py\n@reboot root /usr/local/sbin/ogn-batteria-guardia.py --avvio\n' | sudo tee /etc/cron.d/ogn-batteria-guardia
+sudo python3 /usr/local/sbin/ogn-batteria-guardia.py --simula 10.0     # prova a video: non spegne mai
+```
+
+- Controllo periodico: pacco (INA219 0x40, sotto carico) sotto `BATTERIA_SOGLIA_V` (10,3 V) per `BATTERIA_MINUTI` (3) minuti di fila e carica sotto `BATTERIA_CARICA_MA` (300 mA). Nei primi 4 minuti dall'avvio non agisce.
+- Controllo all'avvio (`--avvio`): dopo 3 minuti, pacco sotto `BATTERIA_SOGLIA_AVVIO_V` (11,0 V) → spegne: con 5 W di consumo un pacco così basso non regge mezza giornata.
+- Le letture fuori da 8-14 V (bus I2C bloccato, `0.000 V`) non contano mai.
+- `BATTERIA_GUARDIA=prova` in `/etc/default/ogn-boot-setup` scrive solo `PROVA: avrei spento la Pi` in `/boot/ogn-eventi.log`; `off` lo disattiva. Gli eventi (`batteria-guardia`) sono nello stesso file.
+- Dopo lo spegnimento la stazione può ripartire il giorno dopo se a riposo il pacco supera la soglia ON dell'ATtiny (circa 10,8 V): il controllo all'avvio la spegne di nuovo finché il pacco non viene ricaricato.
+
