@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ogn-batteria-guardia.py v1.0 - spegnimento PULITO a batteria bassa (Raspberry Pi 3A+ con ATtiny + DS3231)
+# ogn-batteria-guardia.py v1.1 - spegnimento PULITO a batteria bassa (Raspberry Pi 3A+ con ATtiny + DS3231)
 #
 # Problema: a batteria bassa l'ATtiny apre il rele (circa 9,6 V) senza avvisare la Pi: taglio brusco, rischio per la SD.
 # L'ATtiny non puo' dire niente alla Pi, ma legge l'ALLARME del DS3231 (registri 0x07-0x09) e taglia a quell'ora.
@@ -12,6 +12,7 @@
 #   ogn-batteria-guardia.py --avvio   controllo unico dopo l'avvio (cron @reboot): attende 3 minuti e, se il pacco
 #                                     sotto carico e' sotto BATTERIA_SOGLIA_AVVIO_V, spegne (non vale la pena
 #                                     partire con pochi Wh: il pacco non regge nemmeno mezza giornata)
+#   --spegni                          spegnimento pulito subito (alla mano: allarme + attesa + shutdown)
 #   --simula V                        non legge l'INA219: usa V come tensione e non spegne mai (solo prova a video)
 #
 # Impostazioni (in /etc/default/ogn-boot-setup oppure variabili d'ambiente):
@@ -20,6 +21,13 @@
 #   BATTERIA_SOGLIA_AVVIO_V=11.0      soglia del controllo all'avvio
 #   BATTERIA_MINUTI=3                 minuti consecutivi sotto soglia
 #   BATTERIA_CARICA_MA=300            con una carica oltre questa corrente non spegne (il pacco sta risalendo)
+#
+# v1.1 (22 nov 2026): dopo 'shutdown' la Pi in halt viene RISVEGLIATA dall'ATtiny, che ogni 30 s legge il DS3231
+# e tira SCL a massa (~45 s). Non si ferma mai da sola se l'ATtiny non e' gia' in "silenzio I2C", cioe' negli ultimi
+# 3 minuti prima del taglio. Percio' lo script (1) scrive l'allarme a ora+3 minuti, (2) aspetta 40 s perche'
+# l'ATtiny legga l'allarme ed entri in silenzio, (3) solo allora fa 'shutdown'. Se l'ora del DS3231 e' prima delle
+# 08:57 (l'ATtiny ignora un allarme con ora <= 8) scrive l'allarme alle 09:00 e porta l'orologio del DS3231 a 08:57:00:
+# al prossimo avvio ogn-boot-setup riscrive ora e allarme.
 #
 # Il DS3231 segna UTC + shift (0 con ora legale, -1 con ora solare): l'allarme si scrive nella STESSA base dell'ora
 # letta dal DS3231, quindi basta leggerla e sommare 3 minuti. L'ATtiny considera "nessun allarme" (taglio alle
@@ -41,6 +49,7 @@ I2CSET = shlex.split(os.environ.get("I2CSET_CMD", "i2cset"))
 SHUTDOWN = shlex.split(os.environ.get("SHUTDOWN_CMD", "/sbin/shutdown -h now"))
 ATTESA_AVVIO = int(os.environ.get("AVVIO_ATTESA", "180"))
 ATTESA_ARRESTO = int(os.environ.get("ARRESTO_MINUTI", "3"))
+ATTESA_SILENZIO = int(os.environ.get("SILENZIO_S", "40"))
 V_MIN_VALIDA, V_MAX_VALIDA = 8.0, 14.0
 ORA_MINIMA_ALLARME = 9      # l'ATtiny ignora un allarme con ora <= 8 (ORA_ACCENSIONE)
 
@@ -116,18 +125,29 @@ def dec2bcd(n):
     return ((n // 10) << 4) | (n % 10)
 
 
+def scrivi_reg(reg, val):
+    esegui(I2CSET + ["-y", "1", "0x68", "0x%02x" % reg, "0x%02x" % val])
+
+
 def scrivi_allarme():
-    """Allarme DS3231 = ora attuale + ATTESA_ARRESTO minuti (mai prima delle 09:00). Ritorna 'hh:mm' o None."""
+    """Allarme DS3231 = ora attuale + ATTESA_ARRESTO minuti. Prima delle 08:57 del DS3231 allarme 09:00 e orologio
+    portato a 08:57:00 (l'ATtiny ignora un allarme con ora <= 8). Ritorna una descrizione, o None se non scritto."""
     try:
         ore = bcd(leggi_ds(0x02) & 0x3F)
         minuti = bcd(leggi_ds(0x01) & 0x7F)
         tot = ore * 60 + minuti + ATTESA_ARRESTO
-        tot = max(tot, ORA_MINIMA_ALLARME * 60)
-        hh, mm = tot // 60, tot % 60
-        if hh > 23:
+        if tot >= 24 * 60:
             return None
+        if tot < ORA_MINIMA_ALLARME * 60:
+            for reg, val in ((0x07, 0x00), (0x08, 0x00), (0x09, dec2bcd(ORA_MINIMA_ALLARME))):
+                scrivi_reg(reg, val)
+            for reg, val in ((0x00, 0x00), (0x01, dec2bcd(60 - ATTESA_ARRESTO)), (0x02, dec2bcd(ORA_MINIMA_ALLARME - 1))):
+                scrivi_reg(reg, val)
+            return "%02d:00 (orologio del DS3231 portato alle %02d:%02d:00, si riallinea al prossimo avvio)" % (
+                ORA_MINIMA_ALLARME, ORA_MINIMA_ALLARME - 1, 60 - ATTESA_ARRESTO)
+        hh, mm = tot // 60, tot % 60
         for reg, val in ((0x07, 0x00), (0x08, dec2bcd(mm)), (0x09, dec2bcd(hh))):
-            esegui(I2CSET + ["-y", "1", "0x68", "0x%02x" % reg, "0x%02x" % val])
+            scrivi_reg(reg, val)
         return "%02d:%02d" % (hh, mm)
     except (OSError, subprocess.SubprocessError, ValueError):
         return None
@@ -142,6 +162,8 @@ def arresta(motivo, modo):
         evento("spegnimento pulito (%s): taglio del rele alle %s (ora DS3231)" % (motivo, al))
     else:
         evento("spegnimento pulito (%s): allarme DS3231 non scritto, il rele restera' chiuso fino al tetto serale" % motivo)
+    if al:
+        time.sleep(ATTESA_SILENZIO)       # l'ATtiny deve leggere l'allarme ed entrare in silenzio I2C prima dell'halt
     try:
         esegui(["sync"])
     except (OSError, subprocess.SubprocessError):
@@ -159,6 +181,9 @@ def uptime_s():
 
 def main():
     args = sys.argv[1:]
+    if "--spegni" in args:                        # spegnimento pulito su richiesta, sempre reale (anche con BATTERIA_GUARDIA=prova)
+        arresta("richiesta manuale", "on")
+        return
     simula = None
     if "--simula" in args:
         simula = float(args[args.index("--simula") + 1])
