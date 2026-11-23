@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ogn-batteria-guardia.py v1.2 - spegnimento PULITO a batteria bassa (Raspberry Pi 3A+ con ATtiny + DS3231)
+# ogn-batteria-guardia.py v1.3 - spegnimento PULITO a batteria bassa (Raspberry Pi 3A+ con ATtiny + DS3231)
 #
 # Problema: a batteria bassa l'ATtiny apre il rele (circa 9,6 V) senza avvisare la Pi: taglio brusco, rischio per la SD.
 # L'ATtiny non puo' dire niente alla Pi, ma legge l'ALLARME del DS3231 (registri 0x07-0x09) e taglia a quell'ora.
@@ -32,6 +32,9 @@
 # tagliava il rele a meta avvio (23 nov 2026). v1.2: prima delle 08:57 del DS3231 NON spegne e riprova al minuto dopo
 # (la stazione resta accesa fino ad allora; l'ATtiny la taglia comunque a 9,6 V). 'shutdown' compare nella riga di
 # evento perche' 'stato' cerca quella parola per riconoscere lo spegnimento della sera.
+# v1.3 (23 nov 2026): il PATH di cron e' solo /usr/bin:/bin, senza /usr/sbin dove sta i2cget: da cron l'allarme non
+# veniva scritto e la Pi, spenta senza allarme, era risvegliata dall'ATtiny (14 cicli di riavvio in un'ora). Ora lo
+# script imposta il PATH da solo e, se l'allarme non si scrive, NON spegne (scrive l'errore nel log una volta).
 # --forza (solo con --spegni) ripete il vecchio metodo dell'orologio spostato, con quel difetto del giorno dopo.
 #
 # Il DS3231 segna UTC + shift (0 con ora legale, -1 con ora solare): l'allarme si scrive nella STESSA base dell'ora
@@ -39,6 +42,7 @@
 # 17:00 del DS3231) un'ora uguale o minore di 8: per questo l'allarme non e' mai prima delle 09:00.
 # Letture dell'INA219 fuori da 8-14 V (bus I2C bloccato, 0.000 V) non contano mai: non si spegne per un'errata lettura.
 import os
+os.environ["PATH"] = "/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"      # cron ha solo /usr/bin:/bin
 import shlex
 import subprocess
 import sys
@@ -175,10 +179,16 @@ def arresta(motivo, modo, forza=False):
             open(seg, "w").close()
             evento("pacco basso (%s) ma il DS3231 e' prima delle 08:57: non spengo, riprovo ogni minuto" % motivo)
         return
-    if al:
-        evento("shutdown pulito (%s): taglio del rele alle %s (ora DS3231)" % (motivo, al))
-    else:
-        evento("shutdown pulito (%s): allarme DS3231 non scritto, il rele restera' chiuso fino al tetto serale" % motivo)
+    if not al:
+        # senza allarme l'ATtiny risveglierebbe la Pi dopo ~45 s: un ciclo di riavvii inutile. Meglio non spegnere.
+        os.makedirs(STATODIR, exist_ok=True)
+        seg = os.path.join(STATODIR, "errore-allarme")
+        print("allarme DS3231 non scritto (i2cget/i2cset non trovati o bus I2C in errore): NON spengo")
+        if not os.path.exists(seg):
+            open(seg, "w").close()
+            evento("ERRORE (%s): allarme DS3231 non scritto, NON spengo la Pi (verrebbe risvegliata dall'ATtiny)" % motivo)
+        return
+    evento("shutdown pulito (%s): taglio del rele alle %s (ora DS3231)" % (motivo, al))
     if al:
         time.sleep(ATTESA_SILENZIO)       # l'ATtiny deve leggere l'allarme ed entrare in silenzio I2C prima dell'halt
     try:

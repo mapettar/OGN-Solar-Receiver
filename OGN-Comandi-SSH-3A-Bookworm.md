@@ -230,7 +230,7 @@ L'ATtiny a circa 9,6 V apre il relè senza avvisare la Pi (taglio brusco, rischi
 ```
 sudo curl -fsSL https://raw.githubusercontent.com/mapettar/OGN-Solar-Receiver/rpi-bookworm-3a-plus/src/rpi-bookworm/ogn-batteria-guardia.py -o /usr/local/sbin/ogn-batteria-guardia.py
 sudo chmod +x /usr/local/sbin/ogn-batteria-guardia.py
-printf '* * * * * root /usr/local/sbin/ogn-batteria-guardia.py\n@reboot root /usr/local/sbin/ogn-batteria-guardia.py --avvio\n' | sudo tee /etc/cron.d/ogn-batteria-guardia
+printf 'PATH=/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin\n* * * * * root /usr/local/sbin/ogn-batteria-guardia.py\n@reboot root /usr/local/sbin/ogn-batteria-guardia.py --avvio\n' | sudo tee /etc/cron.d/ogn-batteria-guardia
 sudo python3 /usr/local/sbin/ogn-batteria-guardia.py --simula 10.0     # prova a video: non spegne mai
 ```
 
@@ -241,4 +241,4 @@ sudo python3 /usr/local/sbin/ogn-batteria-guardia.py --simula 10.0     # prova a
 - `sudo python3 /usr/local/sbin/ogn-batteria-guardia.py --spegni`: spegnimento pulito subito, a mano (sempre reale, anche con `BATTERIA_GUARDIA=prova`).
 - `BATTERIA_GUARDIA=prova` in `/etc/default/ogn-boot-setup` scrive solo `PROVA: avrei spento la Pi` in `/boot/ogn-eventi.log`; `off` lo disattiva. Gli eventi (`batteria-guardia`) sono nello stesso file.
 - Dopo lo spegnimento la stazione può ripartire il giorno dopo se a riposo il pacco supera la soglia ON dell'ATtiny (circa 10,8 V): il controllo all'avvio la spegne di nuovo finché il pacco non viene ricaricato.
-
+- **Cron e PATH (23 nov 2026):** il PATH predefinito di cron è solo `/usr/bin:/bin`, senza `/usr/sbin` dove stanno `i2cget` e `i2cset`. Con la v1.0-1.2 lanciata da cron l'allarme non veniva scritto e la Pi, spenta senza allarme, veniva risvegliata dall'ATtiny: 14 cicli di spegnimento e riavvio in un'ora. Dalla v1.3 lo script imposta il PATH da solo e, se non riesce a scrivere l'allarme, **non spegne** e scrive `ERRORE ... allarme DS3231 non scritto` una volta in `/boot/ogn-eventi.log`. Le prove da shell con `sudo` non mostrano il problema perché il PATH di sudo include `/usr/sbin`: provare lo script anche con `sudo env -i PATH=/usr/bin:/bin ...`.
