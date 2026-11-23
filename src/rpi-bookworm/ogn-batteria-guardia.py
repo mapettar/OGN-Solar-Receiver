@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# ogn-batteria-guardia.py v1.1 - spegnimento PULITO a batteria bassa (Raspberry Pi 3A+ con ATtiny + DS3231)
+# ogn-batteria-guardia.py v1.2 - spegnimento PULITO a batteria bassa (Raspberry Pi 3A+ con ATtiny + DS3231)
 #
 # Problema: a batteria bassa l'ATtiny apre il rele (circa 9,6 V) senza avvisare la Pi: taglio brusco, rischio per la SD.
 # L'ATtiny non puo' dire niente alla Pi, ma legge l'ALLARME del DS3231 (registri 0x07-0x09) e taglia a quell'ora.
@@ -12,7 +12,8 @@
 #   ogn-batteria-guardia.py --avvio   controllo unico dopo l'avvio (cron @reboot): attende 3 minuti e, se il pacco
 #                                     sotto carico e' sotto BATTERIA_SOGLIA_AVVIO_V, spegne (non vale la pena
 #                                     partire con pochi Wh: il pacco non regge nemmeno mezza giornata)
-#   --spegni                          spegnimento pulito subito (alla mano: allarme + attesa + shutdown)
+#   --spegni [--forza]                spegnimento pulito subito (allarme + attesa + shutdown); prima delle 08:57 del DS3231
+#                                     rifiuta, a meno di --forza
 #   --simula V                        non legge l'INA219: usa V come tensione e non spegne mai (solo prova a video)
 #
 # Impostazioni (in /etc/default/ogn-boot-setup oppure variabili d'ambiente):
@@ -26,8 +27,12 @@
 # e tira SCL a massa (~45 s). Non si ferma mai da sola se l'ATtiny non e' gia' in "silenzio I2C", cioe' negli ultimi
 # 3 minuti prima del taglio. Percio' lo script (1) scrive l'allarme a ora+3 minuti, (2) aspetta 40 s perche'
 # l'ATtiny legga l'allarme ed entri in silenzio, (3) solo allora fa 'shutdown'. Se l'ora del DS3231 e' prima delle
-# 08:57 (l'ATtiny ignora un allarme con ora <= 8) scrive l'allarme alle 09:00 e porta l'orologio del DS3231 a 08:57:00:
-# al prossimo avvio ogn-boot-setup riscrive ora e allarme.
+# 08:57 l'ATtiny ignora l'allarme (ora <= 8): v1.1 portava l'orologio del DS3231 a 08:57, ma il giorno dopo la
+# stazione partiva in anticipo e, quando ogn-boot-setup rimetteva il DS3231 all'ora giusta (< 08:00), l'ATtiny
+# tagliava il rele a meta avvio (23 nov 2026). v1.2: prima delle 08:57 del DS3231 NON spegne e riprova al minuto dopo
+# (la stazione resta accesa fino ad allora; l'ATtiny la taglia comunque a 9,6 V). 'shutdown' compare nella riga di
+# evento perche' 'stato' cerca quella parola per riconoscere lo spegnimento della sera.
+# --forza (solo con --spegni) ripete il vecchio metodo dell'orologio spostato, con quel difetto del giorno dopo.
 #
 # Il DS3231 segna UTC + shift (0 con ora legale, -1 con ora solare): l'allarme si scrive nella STESSA base dell'ora
 # letta dal DS3231, quindi basta leggerla e sommare 3 minuti. L'ATtiny considera "nessun allarme" (taglio alle
@@ -129,15 +134,18 @@ def scrivi_reg(reg, val):
     esegui(I2CSET + ["-y", "1", "0x68", "0x%02x" % reg, "0x%02x" % val])
 
 
-def scrivi_allarme():
-    """Allarme DS3231 = ora attuale + ATTESA_ARRESTO minuti. Prima delle 08:57 del DS3231 allarme 09:00 e orologio
-    portato a 08:57:00 (l'ATtiny ignora un allarme con ora <= 8). Ritorna una descrizione, o None se non scritto."""
+def scrivi_allarme(forza=False):
+    """Allarme DS3231 = ora attuale + ATTESA_ARRESTO minuti. Ritorna una descrizione, 'PRESTO' se e' prima delle
+    08:57 del DS3231 (l'ATtiny ignora un allarme con ora <= 8: non si scrive niente), o None se non scritto.
+    Con forza=True, prima delle 08:57 allarme 09:00 e orologio del DS3231 portato a 08:57:00."""
     try:
         ore = bcd(leggi_ds(0x02) & 0x3F)
         minuti = bcd(leggi_ds(0x01) & 0x7F)
         tot = ore * 60 + minuti + ATTESA_ARRESTO
         if tot >= 24 * 60:
             return None
+        if tot < ORA_MINIMA_ALLARME * 60 and not forza:
+            return "PRESTO"
         if tot < ORA_MINIMA_ALLARME * 60:
             for reg, val in ((0x07, 0x00), (0x08, 0x00), (0x09, dec2bcd(ORA_MINIMA_ALLARME))):
                 scrivi_reg(reg, val)
@@ -153,15 +161,24 @@ def scrivi_allarme():
         return None
 
 
-def arresta(motivo, modo):
+def arresta(motivo, modo, forza=False):
     if modo == "prova":
         evento("PROVA: avrei spento la Pi (%s)" % motivo)
         return
-    al = scrivi_allarme()
+    al = scrivi_allarme(forza)
+    if al == "PRESTO":
+        # prima delle 08:57 del DS3231 un allarme non e' valido per l'ATtiny: si resta accesi e si riprova
+        os.makedirs(STATODIR, exist_ok=True)
+        seg = os.path.join(STATODIR, "presto")
+        print("prima delle 08:57 del DS3231 non spengo (l'ATtiny ignorerebbe l'allarme); con --spegni --forza si sposta l'orologio")
+        if not os.path.exists(seg):
+            open(seg, "w").close()
+            evento("pacco basso (%s) ma il DS3231 e' prima delle 08:57: non spengo, riprovo ogni minuto" % motivo)
+        return
     if al:
-        evento("spegnimento pulito (%s): taglio del rele alle %s (ora DS3231)" % (motivo, al))
+        evento("shutdown pulito (%s): taglio del rele alle %s (ora DS3231)" % (motivo, al))
     else:
-        evento("spegnimento pulito (%s): allarme DS3231 non scritto, il rele restera' chiuso fino al tetto serale" % motivo)
+        evento("shutdown pulito (%s): allarme DS3231 non scritto, il rele restera' chiuso fino al tetto serale" % motivo)
     if al:
         time.sleep(ATTESA_SILENZIO)       # l'ATtiny deve leggere l'allarme ed entrare in silenzio I2C prima dell'halt
     try:
@@ -182,7 +199,7 @@ def uptime_s():
 def main():
     args = sys.argv[1:]
     if "--spegni" in args:                        # spegnimento pulito su richiesta, sempre reale (anche con BATTERIA_GUARDIA=prova)
-        arresta("richiesta manuale", "on")
+        arresta("richiesta manuale", "on", forza="--forza" in args)
         return
     simula = None
     if "--simula" in args:
