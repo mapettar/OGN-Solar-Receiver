@@ -225,6 +225,8 @@ Legge soltanto, non modifica niente. Sezioni e cosa fare con un `[!!]`:
 
 ## Spegnimento pulito a batteria bassa (ogn-batteria-guardia)
 
+**`install.sh` v1.9 installa tutto questo da solo** (script v1.3, cron con il PATH giusto, impostazioni in `/etc/default/ogn-boot-setup`): attivo di default con `--schedule on`, `--guardia prova` per la sola registrazione, `--guardia off` per toglierlo; rilanciandolo sostituisce anche le prove fatte a mano (`ogn-batteria-bassa.sh`, `/etc/cron.d/ogn-batteria-guardia`). I comandi qui sotto servono per l'installazione manuale.
+
 L'ATtiny a circa 9,6 V apre il relè senza avvisare la Pi (taglio brusco, rischio per la SD). `ogn-batteria-guardia.py` evita il taglio brusco con lo stesso meccanismo della sera: scrive nell'allarme del DS3231 l'ora attuale + 3 minuti (mai prima delle 09:00 del DS3231, perché l'ATtiny ignora un allarme con ora <= 8) e fa `shutdown -h now`; l'ATtiny taglia a Pi già ferma. Non serve riprogrammare il Digispark.
 
 ```
