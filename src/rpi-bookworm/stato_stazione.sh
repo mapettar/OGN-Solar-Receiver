@@ -1,10 +1,11 @@
 #!/bin/bash
-# stato_stazione.sh v1.14 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
+# stato_stazione.sh v1.15 - riepilogo mattutino della stazione OGN (Pi 3A+ Bookworm)
 # Uso:  stato   (oppure: sudo bash /usr/local/sbin/stato_stazione.sh)
 # Controlla avvio, orologio DS3231, ciclo spegnimento/avvio, servizi OGN, chiavetta RTL-SDR
 # e collegamento al server APRS, alimentazione, batteria (se l'INA219 e' collegato),
 # scatola (BME280) e disco. In fondo il verdetto.
 # Non modifica niente: legge soltanto.
+# v1.15: errori USB: una sola riga nei primi 180 s dall'avvio e' solo informazione; avvisa se sono 2 o piu, o se ne compare una dopo i 180 s.
 # v1.14: sezione "SIM (collegamento dati)" se /etc/default/ogn-sim ha SIM_MODE diverso da off (ogn_sim.py).
 # v1.4: aggiunta la sezione "Ricevitore": il solo processo ogn-rf in esecuzione NON prova che
 #       riceva (31 ott 2026: chiavetta non rilevata dall'avvio, ogn-rf in attesa, "TUTTO OK").
@@ -240,9 +241,14 @@ if command -v lsusb >/dev/null 2>&1; then
 else
   info "lsusb non installato (pacchetto usbutils)"
 fi
-N_USB=$(dmesg 2>/dev/null | grep -aciE 'usb [0-9.-]+: (device descriptor read.*error -71|device not accepting address)|disabled by hub')
-if [ "${N_USB:-0}" -gt 0 ]; then
+USB_RE='usb [0-9.-]+: (device descriptor read.*error -71|device not accepting address)|disabled by hub'
+N_USB=$(dmesg 2>/dev/null | grep -aciE "$USB_RE")
+# righe oltre i primi 180 s dall'avvio (il kernel le data in secondi dall'avvio)
+N_USB_TARDI=$(dmesg 2>/dev/null | grep -aiE "$USB_RE" | sed -n 's/^\[ *\([0-9]*\)\..*/\1/p' | awk '$1>180' | wc -l)
+if [ "${N_USB_TARDI:-0}" -gt 0 ] || [ "${N_USB:-0}" -ge 2 ]; then
   warn "errori USB nel log del kernel dall'avvio: $N_USB righe (contatto, cavo o alimentazione della porta?)"
+elif [ "${N_USB:-0}" -eq 1 ]; then
+  info "1 riga USB nei primi 3 minuti dall'avvio (scatto momentaneo, ignorato; avvisa se si ripete o compare dopo)"
 else
   ok "nessun errore USB nel log del kernel"
 fi
