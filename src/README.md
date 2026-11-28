@@ -2,6 +2,7 @@
 
 | Percorso | Dove va | Note |
 |----------|---------|------|
+| `attiny/OGN_Attiny_v1_7_5/OGN_Attiny_v1_7_5.ino` | ATtiny85 Digispark (Arduino IDE) | **Da caricare dal 28 nov 2026.** Come la 1.7.4, cambia solo `SOGLIA_BATT_ON` 332 -> 350 (~11,4 V): evita il ciclo avvio/taglio a pacco scarico. |
 | `attiny/OGN_Attiny_v1_7_4/OGN_Attiny_v1_7_4.ino` | ATtiny85 Digispark (Arduino IDE) | **In uso dal 17 nov 2026.** Come la 1.7.3, cambiano solo le soglie batteria, tarate sulle misure: `SOGLIA_BATT_MIN 295` (spegne a circa 9,6 V) e `SOGLIA_BATT_ON 332` (riaccende a circa 10,8 V). Procedura di taratura nel commento iniziale e nel `README.md` della radice |
 | `attiny/OGN_Attiny_v1_7_3/OGN_Attiny_v1_7_3.ino` | ATtiny85 Digispark (Arduino IDE) | Come la 1.7.2, ma negli ultimi 3 minuti prima del taglio non legge il DS3231 (SCL a massa sveglia la RPi in halt). Da usare con `SCHEDULE=on` (halt a tramonto-90, taglio a tramonto-88) |
 | `attiny/OGN_Attiny_v1_7_2/OGN_Attiny_v1_7_2.ino` | ATtiny85 Digispark (Arduino IDE) | Soglie batteria per Li-ion 3S (R1 56k / R2 10k). Per LiFePO4 2S con partitore 20k/10k: `SOGLIA_BATT_MIN 310`, `SOGLIA_BATT_ON 330` |

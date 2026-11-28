@@ -13,7 +13,7 @@ Stazione ricevente OGN (Open Glider Network) autonoma: pannello solare, batteria
 | Carica | - | modulo **CN3722** (MPPT) impostato 3S, pannello da 10 W |
 | 5 V per la Pi | - | **Mini560** (ingresso 7-20 V) |
 | Interruttore | relè | **MOSFET P** (AO3401 + BC547), PTC e TVS |
-| Sketch ATtiny85 | v1.7.2 | **v1.7.4** (`SOGLIA_BATT_MIN 295`, `SOGLIA_BATT_ON 332`, partitore 56k/10k, soglie tarate sulle misure) |
+| Sketch ATtiny85 | v1.7.2 | **v1.7.5** (`SOGLIA_BATT_MIN 295`, `SOGLIA_BATT_ON 350`, partitore 56k/10k, soglie tarate sulle misure) |
 | DS3231 | LIR2032 | **CR2032 senza ricarica** (togliere la resistenza di carica del modulo) |
 | Partenza | 08:00 UTC | **10:00 ora locale** tutto l'anno |
 | Sensori | INA219 | INA219 + **BME280** (temperatura e umidità della scatola) |
@@ -40,7 +40,7 @@ Il rapporto sembra calare un po' con la tensione (causa probabile: dispersione d
 
 **Cosa è successo il 17 nov 2026.** Con la v1.7.3 (310 / 340) lo spegnimento valeva circa 10,1 V e il riavvio circa 11,1 V, e non 9,6 e 10,5 come dicevano i commenti dello sketch. Dopo la giornata coperta del 16 nov il pacco era a circa 10,85 V a riposo, sotto la soglia di riavvio: la stazione, con il pannello da 20 W e cielo coperto, **non è partita alle 10:00**. Collegando il banco alla carica la tensione ai morsetti è salita sopra la soglia e la Pi è partita; una volta accesa vale solo la soglia di spegnimento, quindi i 10,9 V letti sotto carico non la spengono. Con luce scarsa il pannello non alza abbastanza la tensione ai morsetti: **per ripartire da sola la stazione ha bisogno di un pacco carico o di sole**.
 
-**v1.7.4:** `SOGLIA_BATT_MIN 295` (circa 9,6 V) e `SOGLIA_BATT_ON 332` (circa 10,8 V), con la taratura del 17 nov (30,7 conteggi per volt). Per ricalcolarle sul proprio esemplare: misurare con lo stesso tester la tensione del pacco (la Pi la legge con l'INA219), la tensione su P4 e VCC del Digispark; `conteggi per volt = 1023 x (P4 / pacco) / VCC`; `soglia = tensione desiderata x conteggi per volt`. L'ADC dell'ATtiny non è leggibile dalla Pi. I valori 9,6 V e 10,5 V delle tabelle della documentazione originale (1.6) sono nominali, con il partitore ideale.
+**v1.7.5:** `SOGLIA_BATT_ON` passa a 350 (circa 11,4 V) perche il 28 nov, dopo 3 giorni di cielo coperto, la stazione ripartiva a ~10,6 V e il carico di avvio la portava sotto i 9,6 V in 2 minuti (taglio brusco, poi di nuovo in ciclo); `SOGLIA_BATT_MIN` resta 295. Taratura precedente, v1.7.4: `SOGLIA_BATT_MIN 295` (circa 9,6 V) e `SOGLIA_BATT_ON 332` (circa 10,8 V), con la taratura del 17 nov (30,7 conteggi per volt). Per ricalcolarle sul proprio esemplare: misurare con lo stesso tester la tensione del pacco (la Pi la legge con l'INA219), la tensione su P4 e VCC del Digispark; `conteggi per volt = 1023 x (P4 / pacco) / VCC`; `soglia = tensione desiderata x conteggi per volt`. L'ADC dell'ATtiny non è leggibile dalla Pi. I valori 9,6 V e 10,5 V delle tabelle della documentazione originale (1.6) sono nominali, con il partitore ideale.
 
 ## Consumo e pannello
 
